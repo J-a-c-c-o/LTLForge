@@ -2,7 +2,8 @@ mod builder;
 mod petri_net;
 mod algorithms;
 mod philosophers;
-mod parser;
+mod ltl_parser;
+mod pnf;
 
 use builder::PetriNetBuilder;
 use clap::{Parser, Subcommand, Args};

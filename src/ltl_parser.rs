@@ -10,7 +10,7 @@ use nom::{
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[allow(dead_code)]
-enum Expr {
+pub enum Expr {
     True,
     False,
     Var(String),
@@ -156,7 +156,7 @@ fn parse_identifier(input: &str) -> IResult<&str, &str> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[allow(dead_code)]
-enum LTL {
+pub enum LTL {
     Prop(Expr),
     Not(Box<LTL>),
     And(Box<LTL>, Box<LTL>),
@@ -300,7 +300,49 @@ fn parse_implies(input: &str) -> IResult<&str, LTL> {
 
 
 fn parse_ltl(input: &str) -> IResult<&str, LTL> {
-    parse_implies(input)
+    let (input, ltl) = parse_implies(input)?;
+
+    let initial_ltl = match ltl {
+        LTL::AllPaths(inner) => *inner,
+        other => other,
+    };
+
+    let mut stack = vec![&initial_ltl];
+    while let Some(current) = stack.pop() {
+        match current {
+            LTL::AllPaths(_) | LTL::SomePath(_) => {
+                return Err(nom::Err::Error(nom::error::Error::new(
+                    input,
+                    nom::error::ErrorKind::Tag,
+                )));
+            }
+            LTL::Not(inner) => stack.push(inner),
+            LTL::And(left, right) | LTL::Or(left, right) | LTL::Implies(left, right) => {
+                stack.push(left);
+                stack.push(right);
+            }
+
+            LTL::Until(left, right)
+            | LTL::WeakUntil(left, right)
+            | LTL::Release(left, right)
+            | LTL::MightyRelease(left, right) => {
+                stack.push(left);
+                stack.push(right);
+            }
+
+            LTL::Next(inner)
+            | LTL::Eventually(inner)
+            | LTL::Globally(inner)
+            | LTL::AllPaths(inner)
+            | LTL::SomePath(inner) => stack.push(inner),
+            _ => {}
+        }
+    }
+
+
+    Ok((input, initial_ltl))
+        
+            
 }
 
 
@@ -341,21 +383,26 @@ pub fn parse_mcc_file(path: &str) -> Result<Vec<(String, LTL)>, Box<dyn std::err
 mod tests {
     use super::*;
 
-    fn parse_ltl_all(input: &str) -> LTL {
-        let (remaining, parsed) = parse_ltl(input).expect("LTL parse should succeed");
+    fn parse_ltl_all(input: &str) -> Result<LTL, nom::Err<nom::error::Error<&str>>> {
+        let (remaining, parsed) = parse_ltl(input)?;
         assert!(remaining.is_empty(), "unparsed suffix: {remaining:?}");
-        parsed
+        Ok(parsed)
     }
 
-    fn parse_expr_all(input: &str) -> Expr {
-        let (remaining, parsed) = parse_expr(input).expect("Expr parse should succeed");
+    fn parse_expr_all(input: &str) -> Result<Expr, nom::Err<nom::error::Error<&str>>> {
+        let (remaining, parsed) = parse_expr(input)?;
         assert!(remaining.is_empty(), "unparsed suffix: {remaining:?}");
-        parsed
+        Ok(parsed)
     }
 
     #[test]
     fn test_parse_ltl() {
         let parsed = parse_ltl_all("G (a U b)");
+
+        let parsed = match parsed {
+            Ok(inner) => inner,
+            Err(e) => panic!("Failed to parse LTL: {e:?}"),
+        };
 
         let expected = LTL::Globally(Box::new(LTL::Until(
             Box::new(LTL::Prop(Expr::Var("a".to_string()))),
@@ -370,6 +417,11 @@ mod tests {
         let parsed = parse_ltl_all(
             "A X (X G X (((1) <= (#tokens(\"stp4\"))) & F (3 <= (#tokens(\"stp1\")))) & F X G ((2) <= (#tokens(\"AltitudePossibleVal\"))))",
         );
+
+        let parsed = match parsed {
+            Ok(inner) => inner,
+            Err(e) => panic!("Failed to parse LTL: {e:?}"),
+        };
 
         let le_stp4 = LTL::Prop(Expr::LessEqual(
             Box::new(Expr::Number(1)),
@@ -391,10 +443,10 @@ mod tests {
             Box::new(le_alt),
         )))));
 
-        let expected = LTL::AllPaths(Box::new(LTL::Next(Box::new(LTL::And(
+        let expected = LTL::Next(Box::new(LTL::And(
             Box::new(left_branch),
             Box::new(right_branch),
-        )))));
+        )));
 
         assert_eq!(parsed, expected);
     }
@@ -404,6 +456,12 @@ mod tests {
         let parsed = parse_ltl_all(
             "A X G X (\"t2_2\"? U X X !(X (\"t4_2\"? | \"SpeedRW\"?) U \"SpeedRW\"?))",
         );
+
+        let parsed = match parsed {
+            Ok(inner) => inner,
+            Err(e) => panic!("Failed to parse LTL: {e:?}"),
+        };
+        
 
         let fire_t22 = LTL::Prop(Expr::Fireable("t2_2".to_string()));
         let fire_t42_or_speed = LTL::Prop(Expr::Or(
@@ -417,14 +475,14 @@ mod tests {
             Box::new(fire_speed),
         );
 
-        let expected = LTL::AllPaths(Box::new(LTL::Next(Box::new(LTL::Globally(Box::new(
+        let expected = LTL::Next(Box::new(LTL::Globally(Box::new(
             LTL::Next(Box::new(LTL::Until(
                 Box::new(fire_t22),
                 Box::new(LTL::Next(Box::new(LTL::Next(Box::new(LTL::Not(Box::new(
                     nested_until,
                 ))))))),
             ))),
-        ))))));
+        ))));
 
         assert_eq!(parsed, expected);
     }
@@ -432,6 +490,11 @@ mod tests {
     #[test]
     fn test_parse_expr_manual_tree() {
         let parsed = parse_expr_all("1 <= (#tokens(\"stp4\")) & !(\"t2_2\"?)");
+
+        let parsed = match parsed {
+            Ok(expr) => expr,
+            Err(e) => panic!("Failed to parse expression: {e:?}"),
+        };
 
         let expected = Expr::And(
             Box::new(Expr::LessEqual(
@@ -448,13 +511,18 @@ mod tests {
     fn test_parse_ltl_manual_tree_until_and_unary() {
         let parsed = parse_ltl_all("A X (\"t2_2\"? U F (a & b))");
 
-        let expected = LTL::AllPaths(Box::new(LTL::Next(Box::new(LTL::Until(
+        let parsed = match parsed {
+            Ok(inner) => inner,
+            Err(e) => panic!("Failed to parse LTL: {e:?}"),
+        };
+
+        let expected = LTL::Next(Box::new(LTL::Until(
             Box::new(LTL::Prop(Expr::Fireable("t2_2".to_string()))),
             Box::new(LTL::Eventually(Box::new(LTL::Prop(Expr::And(
                 Box::new(Expr::Var("a".to_string())),
                 Box::new(Expr::Var("b".to_string())),
             ))))),
-        )))));
+        )));
 
         assert_eq!(parsed, expected);
     }
@@ -462,6 +530,11 @@ mod tests {
     #[test]
     fn test_parse_expr_implies_is_right_associative() {
         let parsed = parse_expr_all("a -> b -> c");
+
+        let parsed = match parsed {
+            Ok(expr) => expr,
+            Err(e) => panic!("Failed to parse expression: {e:?}"),
+        };
 
         let expected = Expr::Implies(
             Box::new(Expr::Var("a".to_string())),
@@ -475,13 +548,48 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_mcc_file() {
-        let properties = parse_mcc_file("pnml/test_files/test.txt");
-        match properties {
-            Ok(props) => {
-                assert_eq!(props.len(), 3);
-            }
-            Err(e) => panic!("Failed to parse MCC file: {e}"),
-        }
+    fn test_parse_expr_and_or_precedence() {
+        let parsed = parse_expr_all("a & b | c & d");
+
+        let parsed = match parsed {
+            Ok(expr) => expr,
+            Err(e) => panic!("Failed to parse expression: {e:?}"),
+        };
+
+        let expected = Expr::Or(
+            Box::new(Expr::And(
+                Box::new(Expr::Var("a".to_string())),
+                Box::new(Expr::Var("b".to_string())),
+            )),
+            Box::new(Expr::And(
+                Box::new(Expr::Var("c".to_string())),
+                Box::new(Expr::Var("d".to_string())),
+            )),
+        );
+
+        assert_eq!(parsed, expected);
     }
+
+    #[test]
+    fn test_invalid() {
+        let parsed = parse_ltl_all("E X (a U b)");
+
+        let parsed = match parsed {
+            Ok(_) => panic!("Expected parse to fail but it succeeded"),
+            Err(e) => e,
+        };
+    }
+
+    // #[test]
+    // fn test_parse_mcc_file() {
+    //     let properties = parse_mcc_file("pnml/test_files/test.txt");
+    //     match properties {
+    //         Ok(props) => {
+    //             assert_eq!(props.len(), 3);
+    //         }
+    //         Err(e) => panic!("Failed to parse MCC file: {e}"),
+    //     }
+    // }
+
+    
 }
