@@ -3,134 +3,141 @@ use crate::petri_net::PetriNet;
 
 use std::collections::{HashSet, VecDeque};
 
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+enum Stage {
+    Thinking,
+    Inbetween_Left,
+    Inbetween_Right,
+    Eating,
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
 struct Philosopher {
     id: usize,
+    stage: Stage,
     fork_left: usize,
     fork_right: usize,
-    state: PhilosopherState,
+    configuration: PhilosopherConfiguration,
 }
 
-#[derive(Clone, Eq, PartialEq, Hash)]
-enum PhilosopherState {
-    Thinking,
-    Eating,
-    InBetween,
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+struct PhilosopherConfiguration {
+    allowed_left: bool,
+    allowed_right: bool,
 }
 
-#[derive(Clone, Eq, PartialEq, Hash)]
-struct Fork {
-    available: bool,
-    id: usize,
-}
-
-#[derive(Clone, Eq, PartialEq, Hash)]
-struct DiningPhilosophers {
-    philosophers: Vec<Philosopher>,
-    forks: Vec<Fork>,
-}
-
-#[allow(dead_code)]
-impl DiningPhilosophers {
-    fn new(n: usize) -> Self {
-        let philosophers = (0..n).map(|i| Philosopher {
-            id: i,
-            fork_left: i,
-            fork_right: (i + 1) % n,
-            state: PhilosopherState::Thinking,
-        }).collect();
-
-        let forks = (0..n).map(|i| Fork {
-            available: true,
-            id: i,
-        }).collect();
-
-        DiningPhilosophers { philosophers, forks }
+impl Philosopher {
+    fn new(id: usize, n: usize, configuration: PhilosopherConfiguration) -> Self {
+        Philosopher {
+            id,
+            stage: Stage::Thinking,
+            fork_left: id,
+            fork_right: (id + 1) % n,
+            configuration,
+        }
     }
 
-    fn new_with_state_and_forks(states: Vec<Philosopher>, forks: Vec<Fork>) -> Self {
-        if states.len() != forks.len() {
-            panic!("States and forks vectors must have the same length");
+
+    fn pick_up_left(&mut self, forks: &mut [bool]) -> bool {
+        if self.configuration.allowed_left && matches!(self.stage, Stage::Thinking) && !forks[self.fork_left] {
+            forks[self.fork_left] = true;
+            self.stage = Stage::Inbetween_Left;
+            return true;
+        }
+        if self.configuration.allowed_right && matches!(self.stage, Stage::Inbetween_Right) && !forks[self.fork_left] {
+            forks[self.fork_left] = true;
+            self.stage = Stage::Eating;
+            return true;
+        }
+        false
+    }
+
+    fn pick_up_right(&mut self, forks: &mut [bool]) -> bool {
+        if self.configuration.allowed_left && matches!(self.stage, Stage::Inbetween_Left) && !forks[self.fork_right] {
+            forks[self.fork_right] = true;
+            self.stage = Stage::Eating;
+            return true;
+        }
+        if self.configuration.allowed_right && matches!(self.stage, Stage::Thinking) && !forks[self.fork_right] {
+            forks[self.fork_right] = true;
+            self.stage = Stage::Inbetween_Right;
+            return true;
+        }
+        false
+    }
+
+    fn put_down_forks(&mut self, forks: &mut [bool]) -> bool {
+        // b transition: from Eating -> Thinking, release both forks
+        if !matches!(self.stage, Stage::Eating) {
+            return false;
         }
 
-        DiningPhilosophers { philosophers: states, forks }
+        forks[self.fork_left] = false;
+        forks[self.fork_right] = false;
+        self.stage = Stage::Thinking;
+        true
     }
 
 
-    fn next_states(&self) -> Vec<DiningPhilosophers> {
-        let mut next_states = Vec::new();
 
-        for philosopher in &self.philosophers {
-            match philosopher.state {
-                PhilosopherState::Thinking => {
-                    // l_i: consume left fork and move to the intermediate state.
-                    if self.forks[philosopher.fork_left].available {
-                        let mut new_state = self.clone();
-                        new_state.philosophers[philosopher.id].state = PhilosopherState::InBetween;
-                        new_state.forks[philosopher.fork_left].available = false;
-                        next_states.push(new_state);
-                    }
-                }
-                PhilosopherState::InBetween => {
-                    // r_i: consume right fork and start eating.
-                    if self.forks[philosopher.fork_right].available {
-                        let mut new_state = self.clone();
-                        new_state.philosophers[philosopher.id].state = PhilosopherState::Eating;
-                        new_state.forks[philosopher.fork_right].available = false;
-                        next_states.push(new_state);
-                    }
-                }
-                PhilosopherState::Eating => {
-                    // b_i: finish eating and release both forks.
-                    let mut new_state = self.clone();
-                    new_state.philosophers[philosopher.id].state = PhilosopherState::Thinking;
-                    new_state.forks[philosopher.fork_left].available = true;
-                    new_state.forks[philosopher.fork_right].available = true;
-                    next_states.push(new_state);
-                }
+
+}
+
+pub fn play_dining_philosophers(n: usize, configurations: Vec<PhilosopherConfiguration>) -> (HashSet<(Vec<Philosopher>, Vec<bool>)>, HashSet<(Vec<Philosopher>, Vec<bool>)>) {
+    let mut philosophers: Vec<Philosopher> = (0..n).map(|i| Philosopher::new(i, n, configurations[i].clone())).collect();
+    let mut forks = vec![false; n];
+    let mut states = HashSet::new();
+    let mut deadlocks = HashSet::new();
+    let mut queue = VecDeque::new();
+
+    queue.push_back((philosophers.clone(), forks.clone()));
+
+    while let Some((mut philosophers, mut forks)) = queue.pop_front() {
+        if !states.insert((philosophers.clone(), forks.clone())) {
+            continue;
+        }
+
+        let mut actions = 0;
+        for i in 0..n {
+            let mut philosopher = philosophers[i].clone();
+            let mut new_forks = forks.clone();
+
+            if philosophers[i].put_down_forks(&mut new_forks) {
+                queue.push_back((philosophers.clone(), new_forks));
+                philosophers[i] = philosopher.clone();
+                actions += 1;
             }
-        }
 
-        next_states
-    }
+            
 
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct DiningPhilosophersStats {
-    pub reachable_count: usize,
-    pub deadlock_count: usize,
-}
-
-
-pub fn calculate_dining_philosophers_stats(n: usize) -> DiningPhilosophersStats {
-    let initial_state = DiningPhilosophers::new(n);
-    let mut visited = HashSet::new();
-    let mut to_visit = VecDeque::new();
-    let mut deadlock_count = 0usize;
-
-    visited.insert(initial_state.clone());
-    to_visit.push_back(initial_state);
-
-    while let Some(current) = to_visit.pop_front() {
-        let next_states = current.next_states();
-        if next_states.is_empty() {
-            deadlock_count += 1;
-        }
-
-        for next in next_states {
-            if !visited.contains(&next) {
-                visited.insert(next.clone());
-                to_visit.push_back(next);
+            let mut new_forks = forks.clone();
+            if philosophers[i].pick_up_left(&mut new_forks) {
+                queue.push_back((philosophers.clone(), new_forks));
+                philosophers[i] = philosopher.clone();
+                actions += 1;
             }
+
+            let mut new_forks = forks.clone();
+            if philosophers[i].pick_up_right(&mut new_forks) {
+                queue.push_back((philosophers.clone(), new_forks));
+                philosophers[i] = philosopher.clone();
+                actions += 1;
+            }
+
+            
         }
+
+        if actions == 0 {
+            deadlocks.insert((philosophers.clone(), forks.clone()));
+        }
+        
     }
 
-    DiningPhilosophersStats {
-        reachable_count: visited.len(),
-        deadlock_count,
-    }
+    (states, deadlocks)
+    
 }
+
+
 
 
 
@@ -173,10 +180,33 @@ mod tests {
     use super::*;
     
     #[test]
-    fn test_calculate_dining_philosophers_deadlocks() {
+    fn test_calculate_dining_philosophers_both() {
         let n = 4;
-        let stats = calculate_dining_philosophers_stats(n);
-        assert_eq!(stats.reachable_count, 34);
-        assert_eq!(stats.deadlock_count, 1);
+        let configurations = vec![
+            PhilosopherConfiguration { allowed_left: true, allowed_right: true },
+            PhilosopherConfiguration { allowed_left: true, allowed_right: true },
+            PhilosopherConfiguration { allowed_left: true, allowed_right: true },
+            PhilosopherConfiguration { allowed_left: true, allowed_right: true }
+        ];
+
+
+        let (states, deadlocks) = play_dining_philosophers(n, configurations);
+        assert_eq!(states.len(), 81);
+        assert_eq!(deadlocks.len(), 2);
+    }
+
+    #[test]
+    fn test_calculate_dining_philosophers_left_only() {
+        let n = 4;
+        let configurations = vec![
+            PhilosopherConfiguration { allowed_left: true, allowed_right: false },
+            PhilosopherConfiguration { allowed_left: true, allowed_right: false },
+            PhilosopherConfiguration { allowed_left: true, allowed_right: false },
+            PhilosopherConfiguration { allowed_left: true, allowed_right: false }
+        ];
+
+        let (states, deadlocks) = play_dining_philosophers(n, configurations);
+        assert_eq!(states.len(), 34);
+        assert_eq!(deadlocks.len(), 1);
     }
 }
