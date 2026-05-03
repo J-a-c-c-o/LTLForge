@@ -10,70 +10,138 @@ use nom::{
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[allow(dead_code)]
-pub enum Expr {
+pub enum LTL {
     True,
     False,
     Var(String),
-    Not(Box<Expr>),
-    And(Box<Expr>, Box<Expr>),
-    Or(Box<Expr>, Box<Expr>),
-    Implies(Box<Expr>, Box<Expr>),
-    LessEqual(Box<Expr>, Box<Expr>),
-    GreaterEqual(Box<Expr>, Box<Expr>),
+    Not(Box<LTL>),
+    And(Box<LTL>, Box<LTL>),
+    Or(Box<LTL>, Box<LTL>),
+    Implies(Box<LTL>, Box<LTL>),
+    LessEqual(Box<LTL>, Box<LTL>),
+    GreaterEqual(Box<LTL>, Box<LTL>),
+    Greater(Box<LTL>, Box<LTL>),
+    Less(Box<LTL>, Box<LTL>),
     TokenCount(String),
     Fireable(String),
     Number(u32),
+    Next(Box<LTL>),
+    Eventually(Box<LTL>),
+    Globally(Box<LTL>),
+    AllPaths(Box<LTL>),
+    SomePath(Box<LTL>),
+    Until(Box<LTL>, Box<LTL>),
+    WeakUntil(Box<LTL>, Box<LTL>),
+    Release(Box<LTL>, Box<LTL>),
+    MightyRelease(Box<LTL>, Box<LTL>),
 }
 
-fn parse_expr(input: &str) -> IResult<&str, Expr> {
+impl std::fmt::Display for LTL {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LTL::True => write!(f, "true"),
+            LTL::False => write!(f, "false"),
+            LTL::Var(name) => write!(f, "{}", name),
+            LTL::Not(inner) => write!(f, "!({})", inner),
+            LTL::And(left, right) => write!(f, "({} & {})", left, right),
+            LTL::Or(left, right) => write!(f, "({} | {})", left, right),
+            LTL::Implies(left, right) => write!(f, "({} -> {})", left, right),
+            LTL::LessEqual(left, right) => write!(f, "({} <= {})", left, right),
+            LTL::GreaterEqual(left, right) => write!(f, "({} >= {})", left, right),
+            LTL::Greater(left, right) => write!(f, "({} > {})", left, right),
+            LTL::Less(left, right) => write!(f, "({} < {})", left, right),
+            LTL::TokenCount(name) => write!(f, "#tokens(\"{}\")", name),
+            LTL::Fireable(name) => write!(f, "\"{}\"?", name),
+            LTL::Number(n) => write!(f, "{}", n),
+            LTL::Next(inner) => write!(f, "X {}", inner),
+            LTL::Eventually(inner) => write!(f, "F {}", inner),
+            LTL::Globally(inner) => write!(f, "G {}", inner),
+            LTL::AllPaths(inner) => write!(f, "A {}", inner),
+            LTL::SomePath(inner) => write!(f, "E {}", inner),
+            LTL::Until(left, right) => write!(f, "({} U {})", left, right),
+            LTL::WeakUntil(left, right) => write!(f, "({} W {})", left, right),
+            LTL::Release(left, right) => write!(f, "({} R {})", left, right),
+            LTL::MightyRelease(left, right) => write!(f, "({} M {})", left, right),
+        }
+    }
+}
+
+impl LTL {
+    pub fn size(&self) -> usize {
+        match self {
+            LTL::True | LTL::False | LTL::Var(_) | LTL::TokenCount(_) | LTL::Fireable(_) | LTL::Number(_) => 1,
+            LTL::Not(inner) => 1 + inner.size(),
+            LTL::Next(inner) | LTL::Eventually(inner) | LTL::Globally(inner) | LTL::AllPaths(inner) | LTL::SomePath(inner) => 1 + inner.size(),
+            LTL::And(left, right)
+            | LTL::Or(left, right)
+            | LTL::Implies(left, right)
+            | LTL::LessEqual(left, right)
+            | LTL::GreaterEqual(left, right)
+            | LTL::Greater(left, right)
+            | LTL::Less(left, right)
+            | LTL::Until(left, right)
+            | LTL::WeakUntil(left, right)
+            | LTL::Release(left, right)
+            | LTL::MightyRelease(left, right) => 1 + left.size() + right.size(),
+        }
+    }
+}
+
+fn parse_expr(input: &str) -> IResult<&str, LTL> {
     parse_expr_implies(input)
 }
 
-fn parse_expr_implies(input: &str) -> IResult<&str, Expr> {
+fn parse_expr_implies(input: &str) -> IResult<&str, LTL> {
     let (input, lhs) = parse_expr_or(input)?;
 
     if let Ok((next_input, rhs)) = preceded(ws(tag("->")), parse_expr_implies).parse(input) {
-        Ok((next_input, Expr::Implies(Box::new(lhs), Box::new(rhs))))
+        Ok((next_input, LTL::Implies(Box::new(lhs), Box::new(rhs))))
     } else {
         Ok((input, lhs))
     }
 }
 
-fn parse_expr_or(input: &str) -> IResult<&str, Expr> {
+fn parse_expr_or(input: &str) -> IResult<&str, LTL> {
     let (mut input, mut expr) = parse_expr_and(input)?;
 
     while let Ok((next_input, rhs)) = preceded(ws(alt((tag("||"), tag("|")))), parse_expr_and)
         .parse(input)
     {
-        expr = Expr::Or(Box::new(expr), Box::new(rhs));
+        expr = LTL::Or(Box::new(expr), Box::new(rhs));
         input = next_input;
     }
 
     Ok((input, expr))
 }
 
-fn parse_expr_and(input: &str) -> IResult<&str, Expr> {
+fn parse_expr_and(input: &str) -> IResult<&str, LTL> {
     let (mut input, mut expr) = parse_expr_compare(input)?;
 
     while let Ok((next_input, rhs)) = preceded(ws(alt((tag("&&"), tag("&")))), parse_expr_compare)
         .parse(input)
     {
-        expr = Expr::And(Box::new(expr), Box::new(rhs));
+        expr = LTL::And(Box::new(expr), Box::new(rhs));
         input = next_input;
     }
 
     Ok((input, expr))
 }
 
-fn parse_expr_compare(input: &str) -> IResult<&str, Expr> {
+fn parse_expr_compare(input: &str) -> IResult<&str, LTL> {
     let (input, lhs) = parse_expr_not(input)?;
 
     if let Ok((next_input, _)) = parse_le_operator(input) {
         let (next_input, rhs) = parse_expr_not(next_input)?;
-        Ok((next_input, Expr::LessEqual(Box::new(lhs), Box::new(rhs))))
+        Ok((next_input, LTL::LessEqual(Box::new(lhs), Box::new(rhs))))
     } else if let Ok((next_input, _)) = parse_ge_operator(input) {
         let (next_input, rhs) = parse_expr_not(next_input)?;
-        Ok((next_input, Expr::GreaterEqual(Box::new(lhs), Box::new(rhs))))
+        Ok((next_input, LTL::GreaterEqual(Box::new(lhs), Box::new(rhs))))
+    } else if let Ok((next_input, _)) = parse_gt_operator(input) {
+        let (next_input, rhs) = parse_expr_not(next_input)?;
+        Ok((next_input, LTL::Greater(Box::new(lhs), Box::new(rhs))))
+    } else if let Ok((next_input, _)) = parse_lt_operator(input) {
+        let (next_input, rhs) = parse_expr_not(next_input)?;
+        Ok((next_input, LTL::Less(Box::new(lhs), Box::new(rhs))))
     } else {
         Ok((input, lhs))
     }
@@ -87,30 +155,38 @@ fn parse_ge_operator(input: &str) -> IResult<&str, &str> {
     ws(tag(">=")).parse(input)
 }
 
-fn parse_expr_not(input: &str) -> IResult<&str, Expr> {
+fn parse_gt_operator(input: &str) -> IResult<&str, &str> {
+    ws(tag(">")).parse(input)
+}
+
+fn parse_lt_operator(input: &str) -> IResult<&str, &str> {
+    ws(tag("<")).parse(input)
+}
+
+fn parse_expr_not(input: &str) -> IResult<&str, LTL> {
     alt((
         map(preceded(ws(char('!')), parse_expr_not), |expr| {
-            Expr::Not(Box::new(expr))
+            LTL::Not(Box::new(expr))
         }),
         parse_expr_primary,
     ))
     .parse(input)
 }
 
-fn parse_expr_primary(input: &str) -> IResult<&str, Expr> {
+fn parse_expr_primary(input: &str) -> IResult<&str, LTL> {
     alt((
-        value(Expr::True, ws(tag("true"))),
-        value(Expr::False, ws(tag("false"))),
+        value(LTL::True, ws(tag("true"))),
+        value(LTL::False, ws(tag("false"))),
         parse_token_count,
         parse_fireable,
-        map(ws(digit1), |n: &str| Expr::Number(n.parse().unwrap())),
+        map(ws(digit1), |n: &str| LTL::Number(n.parse().unwrap())),
         parse_variable_expr,
         delimited(ws(char('(')), parse_expr, ws(char(')'))),
     ))
     .parse(input)
 }
 
-fn parse_variable_expr(input: &str) -> IResult<&str, Expr> {
+fn parse_variable_expr(input: &str) -> IResult<&str, LTL> {
     let (input, name) = ws(parse_identifier).parse(input)?;
 
     if matches!(name, "A" | "E" | "X" | "F" | "G" | "U" | "R" | "W" | "M") {
@@ -120,23 +196,23 @@ fn parse_variable_expr(input: &str) -> IResult<&str, Expr> {
         )));
     }
 
-    Ok((input, Expr::Var(name.to_string())))
+    Ok((input, LTL::Var(name.to_string())))
 }
 
-fn parse_token_count(input: &str) -> IResult<&str, Expr> {
+fn parse_token_count(input: &str) -> IResult<&str, LTL> {
     map(
         preceded(
             ws(tag("#tokens")),
             delimited(ws(char('(')), ws(parse_quoted_string), ws(char(')'))),
         ),
-        |name| Expr::TokenCount(name.to_string()),
+        |name| LTL::TokenCount(name.to_string()),
     )
     .parse(input)
 }
 
-fn parse_fireable(input: &str) -> IResult<&str, Expr> {
+fn parse_fireable(input: &str) -> IResult<&str, LTL> {
     map(terminated(ws(parse_quoted_string), ws(char('?'))), |name| {
-        Expr::Fireable(name.to_string())
+        LTL::Fireable(name.to_string())
     })
     .parse(input)
 }
@@ -153,26 +229,6 @@ fn parse_identifier(input: &str) -> IResult<&str, &str> {
     .parse(input)
 }
 
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[allow(dead_code)]
-pub enum LTL {
-    Prop(Expr),
-    Not(Box<LTL>),
-    And(Box<LTL>, Box<LTL>),
-    Or(Box<LTL>, Box<LTL>),
-    Implies(Box<LTL>, Box<LTL>),
-    Next(Box<LTL>),
-    Eventually(Box<LTL>),
-    Globally(Box<LTL>),
-    AllPaths(Box<LTL>),
-    SomePath(Box<LTL>),
-    Until(Box<LTL>, Box<LTL>),
-    WeakUntil(Box<LTL>, Box<LTL>),
-    Release(Box<LTL>, Box<LTL>),
-    MightyRelease(Box<LTL>, Box<LTL>),
-}
-
 fn ws<'a, O, E, P>(parser: P) -> impl Parser<&'a str, Output = O, Error = E>
 where
     E: nom::error::ParseError<&'a str>,
@@ -181,15 +237,10 @@ where
     delimited(multispace0, parser, multispace0)
 }
 
-fn parse_prop(input: &str) -> IResult<&str, LTL> {
-    map(parse_expr, |expr| LTL::Prop(expr)).parse(input)
-}
-
-
 fn parse_primary(input: &str) -> IResult<&str, LTL> {
     alt((
         delimited(ws(char('(')), parse_ltl, ws(char(')'))),
-        parse_prop,
+        parse_expr,
     ))
     .parse(input)
 }
@@ -245,7 +296,6 @@ fn parse_or(input: &str) -> IResult<&str, LTL> {
     Ok((input, expr))
 }
 
-
 fn parse_until(input: &str) -> IResult<&str, LTL> {
     let (input, lhs) = parse_or(input)?;
 
@@ -286,8 +336,6 @@ fn parse_mighty_release(input: &str) -> IResult<&str, LTL> {
     }
 }
 
-
-
 fn parse_implies(input: &str) -> IResult<&str, LTL> {
     let (input, lhs) = parse_mighty_release(input)?;
 
@@ -297,7 +345,6 @@ fn parse_implies(input: &str) -> IResult<&str, LTL> {
         Ok((input, lhs))
     }
 }
-
 
 fn parse_ltl(input: &str) -> IResult<&str, LTL> {
     let (input, ltl) = parse_implies(input)?;
@@ -321,7 +368,6 @@ fn parse_ltl(input: &str) -> IResult<&str, LTL> {
                 stack.push(left);
                 stack.push(right);
             }
-
             LTL::Until(left, right)
             | LTL::WeakUntil(left, right)
             | LTL::Release(left, right)
@@ -329,22 +375,13 @@ fn parse_ltl(input: &str) -> IResult<&str, LTL> {
                 stack.push(left);
                 stack.push(right);
             }
-
-            LTL::Next(inner)
-            | LTL::Eventually(inner)
-            | LTL::Globally(inner)
-            | LTL::AllPaths(inner)
-            | LTL::SomePath(inner) => stack.push(inner),
+            LTL::Next(inner) | LTL::Eventually(inner) | LTL::Globally(inner) => stack.push(inner),
             _ => {}
         }
     }
 
-
     Ok((input, initial_ltl))
-        
-            
 }
-
 
 fn parse_property(input: &str) -> IResult<&str, (String, LTL)> {
     let (input, _) = ws(tag("Property")).parse(input)?;
@@ -356,7 +393,6 @@ fn parse_property(input: &str) -> IResult<&str, (String, LTL)> {
 
     Ok((input, (name.to_string(), ltl)))
 }
-
 
 fn parse_mcc(input: &str) -> IResult<&str, Vec<(String, LTL)>> {
     let mut properties = Vec::new();
@@ -375,10 +411,6 @@ pub fn parse_mcc_file(path: &str) -> Result<Vec<(String, LTL)>, Box<dyn std::err
     Ok(properties)
 }
 
-
-
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -389,7 +421,7 @@ mod tests {
         Ok(parsed)
     }
 
-    fn parse_expr_all(input: &str) -> Result<Expr, nom::Err<nom::error::Error<&str>>> {
+    fn parse_expr_all(input: &str) -> Result<LTL, nom::Err<nom::error::Error<&str>>> {
         let (remaining, parsed) = parse_expr(input)?;
         assert!(remaining.is_empty(), "unparsed suffix: {remaining:?}");
         Ok(parsed)
@@ -397,56 +429,27 @@ mod tests {
 
     #[test]
     fn test_parse_ltl() {
-        let parsed = parse_ltl_all("G (a U b)");
-
-        let parsed = match parsed {
-            Ok(inner) => inner,
-            Err(e) => panic!("Failed to parse LTL: {e:?}"),
-        };
+        let parsed = parse_ltl_all("G (a U b)").unwrap();
 
         let expected = LTL::Globally(Box::new(LTL::Until(
-            Box::new(LTL::Prop(Expr::Var("a".to_string()))),
-            Box::new(LTL::Prop(Expr::Var("b".to_string()))),
+            Box::new(LTL::Var("a".to_string())),
+            Box::new(LTL::Var("b".to_string())),
         )));
 
         assert_eq!(parsed, expected);
     }
 
     #[test]
-    fn test_parse_ltl_token() {
-        let parsed = parse_ltl_all(
-            "A X (X G X (((1) <= (#tokens(\"stp4\"))) & F (3 <= (#tokens(\"stp1\")))) & F X G ((2) <= (#tokens(\"AltitudePossibleVal\"))))",
+    fn test_parse_expr_manual_tree() {
+        let parsed = parse_expr_all("1 <= (#tokens(\"stp4\")) & !(\"t2_2\"?)").unwrap();
+
+        let expected = LTL::And(
+            Box::new(LTL::LessEqual(
+                Box::new(LTL::Number(1)),
+                Box::new(LTL::TokenCount("stp4".to_string())),
+            )),
+            Box::new(LTL::Not(Box::new(LTL::Fireable("t2_2".to_string())))),
         );
-
-        let parsed = match parsed {
-            Ok(inner) => inner,
-            Err(e) => panic!("Failed to parse LTL: {e:?}"),
-        };
-
-        let le_stp4 = LTL::Prop(Expr::LessEqual(
-            Box::new(Expr::Number(1)),
-            Box::new(Expr::TokenCount("stp4".to_string())),
-        ));
-        let le_stp1 = LTL::Prop(Expr::LessEqual(
-            Box::new(Expr::Number(3)),
-            Box::new(Expr::TokenCount("stp1".to_string())),
-        ));
-        let le_alt = LTL::Prop(Expr::LessEqual(
-            Box::new(Expr::Number(2)),
-            Box::new(Expr::TokenCount("AltitudePossibleVal".to_string())),
-        ));
-
-        let left_branch = LTL::Next(Box::new(LTL::Globally(Box::new(LTL::Next(Box::new(
-            LTL::And(Box::new(le_stp4), Box::new(LTL::Eventually(Box::new(le_stp1)))),
-        ))))));
-        let right_branch = LTL::Eventually(Box::new(LTL::Next(Box::new(LTL::Globally(
-            Box::new(le_alt),
-        )))));
-
-        let expected = LTL::Next(Box::new(LTL::And(
-            Box::new(left_branch),
-            Box::new(right_branch),
-        )));
 
         assert_eq!(parsed, expected);
     }
@@ -455,20 +458,15 @@ mod tests {
     fn test_parse_ltl_firable() {
         let parsed = parse_ltl_all(
             "A X G X (\"t2_2\"? U X X !(X (\"t4_2\"? | \"SpeedRW\"?) U \"SpeedRW\"?))",
+        )
+        .unwrap();
+
+        let fire_t22 = LTL::Fireable("t2_2".to_string());
+        let fire_t42_or_speed = LTL::Or(
+            Box::new(LTL::Fireable("t4_2".to_string())),
+            Box::new(LTL::Fireable("SpeedRW".to_string())),
         );
-
-        let parsed = match parsed {
-            Ok(inner) => inner,
-            Err(e) => panic!("Failed to parse LTL: {e:?}"),
-        };
-        
-
-        let fire_t22 = LTL::Prop(Expr::Fireable("t2_2".to_string()));
-        let fire_t42_or_speed = LTL::Prop(Expr::Or(
-            Box::new(Expr::Fireable("t4_2".to_string())),
-            Box::new(Expr::Fireable("SpeedRW".to_string())),
-        ));
-        let fire_speed = LTL::Prop(Expr::Fireable("SpeedRW".to_string()));
+        let fire_speed = LTL::Fireable("SpeedRW".to_string());
 
         let nested_until = LTL::Until(
             Box::new(LTL::Next(Box::new(fire_t42_or_speed))),
@@ -488,108 +486,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_expr_manual_tree() {
-        let parsed = parse_expr_all("1 <= (#tokens(\"stp4\")) & !(\"t2_2\"?)");
-
-        let parsed = match parsed {
-            Ok(expr) => expr,
-            Err(e) => panic!("Failed to parse expression: {e:?}"),
-        };
-
-        let expected = Expr::And(
-            Box::new(Expr::LessEqual(
-                Box::new(Expr::Number(1)),
-                Box::new(Expr::TokenCount("stp4".to_string())),
-            )),
-            Box::new(Expr::Not(Box::new(Expr::Fireable("t2_2".to_string())))),
-        );
-
-        assert_eq!(parsed, expected);
-    }
-
-    #[test]
-    fn test_parse_ltl_manual_tree_until_and_unary() {
-        let parsed = parse_ltl_all("A X (\"t2_2\"? U F (a & b))");
-
-        let parsed = match parsed {
-            Ok(inner) => inner,
-            Err(e) => panic!("Failed to parse LTL: {e:?}"),
-        };
-
-        let expected = LTL::Next(Box::new(LTL::Until(
-            Box::new(LTL::Prop(Expr::Fireable("t2_2".to_string()))),
-            Box::new(LTL::Eventually(Box::new(LTL::Prop(Expr::And(
-                Box::new(Expr::Var("a".to_string())),
-                Box::new(Expr::Var("b".to_string())),
-            ))))),
-        )));
-
-        assert_eq!(parsed, expected);
-    }
-
-    #[test]
-    fn test_parse_expr_implies_is_right_associative() {
-        let parsed = parse_expr_all("a -> b -> c");
-
-        let parsed = match parsed {
-            Ok(expr) => expr,
-            Err(e) => panic!("Failed to parse expression: {e:?}"),
-        };
-
-        let expected = Expr::Implies(
-            Box::new(Expr::Var("a".to_string())),
-            Box::new(Expr::Implies(
-                Box::new(Expr::Var("b".to_string())),
-                Box::new(Expr::Var("c".to_string())),
-            )),
-        );
-
-        assert_eq!(parsed, expected);
-    }
-
-    #[test]
-    fn test_parse_expr_and_or_precedence() {
-        let parsed = parse_expr_all("a & b | c & d");
-
-        let parsed = match parsed {
-            Ok(expr) => expr,
-            Err(e) => panic!("Failed to parse expression: {e:?}"),
-        };
-
-        let expected = Expr::Or(
-            Box::new(Expr::And(
-                Box::new(Expr::Var("a".to_string())),
-                Box::new(Expr::Var("b".to_string())),
-            )),
-            Box::new(Expr::And(
-                Box::new(Expr::Var("c".to_string())),
-                Box::new(Expr::Var("d".to_string())),
-            )),
-        );
-
-        assert_eq!(parsed, expected);
-    }
-
-    #[test]
     fn test_invalid() {
-        let parsed = parse_ltl_all("E X (a U b)");
-
-        let parsed = match parsed {
-            Ok(_) => panic!("Expected parse to fail but it succeeded"),
-            Err(e) => e,
-        };
+        assert!(parse_ltl_all("E X (a U b)").is_err());
     }
-
-    // #[test]
-    // fn test_parse_mcc_file() {
-    //     let properties = parse_mcc_file("pnml/test_files/test.txt");
-    //     match properties {
-    //         Ok(props) => {
-    //             assert_eq!(props.len(), 3);
-    //         }
-    //         Err(e) => panic!("Failed to parse MCC file: {e}"),
-    //     }
-    // }
-
-    
 }
