@@ -240,7 +240,7 @@ where
 fn parse_primary(input: &str) -> IResult<&str, LTL> {
     alt((
         delimited(ws(char('(')), parse_ltl, ws(char(')'))),
-        parse_expr,
+        parse_expr_primary,
     ))
     .parse(input)
 }
@@ -434,6 +434,21 @@ mod tests {
         let expected = LTL::Globally(Box::new(LTL::Until(
             Box::new(LTL::Var("a".to_string())),
             Box::new(LTL::Var("b".to_string())),
+        )));
+
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn test_parse_neg_and_in_until() {
+        let parsed = parse_ltl_all("G (a U (!a & b))").unwrap();
+
+        let expected = LTL::Globally(Box::new(LTL::Until(
+            Box::new(LTL::Var("a".to_string())),
+            Box::new(LTL::And(
+                Box::new(LTL::Not(Box::new(LTL::Var("a".to_string())))),
+                Box::new(LTL::Var("b".to_string())),
+            )),
         )));
 
         assert_eq!(parsed, expected);
