@@ -6,27 +6,9 @@ pub fn is_consistent(closure: &[LTL]) -> Vec<Vec<bool>> {
     consistent_sets(closure, &[], &mut hash_set);
     let consistent_sets: Vec<Vec<bool>> = hash_set.into_iter().collect();
     
-    if cfg!(test) {
-        sorted_consistent_sets(consistent_sets)
-    } else {
-        consistent_sets
-    }
+    consistent_sets
 }
 
-#[cfg(test)]
-fn sorted_consistent_sets(mut sets: Vec<Vec<bool>>) -> Vec<Vec<bool>> {
-    sets.sort_by(|a, b| {
-        for (x, y) in a.iter().zip(b.iter()) {
-            match (x, y) {
-                (true, false) => return std::cmp::Ordering::Less,
-                (false, true) => return std::cmp::Ordering::Greater,
-                _ => continue,
-            }
-        }
-        std::cmp::Ordering::Equal
-    });
-    sets
-}
 
 
 fn consistent_sets(closure: &[LTL], partial_truth: &[bool], hash_set: &mut HashSet<Vec<bool>>) {
@@ -61,33 +43,21 @@ fn is_consistent_with_partial(formula: &LTL, partial_truth: &[bool], closure: &[
 
     match formula {
         LTL::True => {
-            if !value {
-                return false;
-            }
+            if !value { return false; }
         }
         LTL::False => {
-            if value {
-                return false;
-            }
+            if value { return false; }
         }
         LTL::And(left, right) => {
-            // helper to get assigned truth for possibly negated formulas
             let left_assigned = get_assigned_truth(left.as_ref(), partial_truth, closure);
             let right_assigned = get_assigned_truth(right.as_ref(), partial_truth, closure);
 
-            // if And is true => both operands must not be assigned false
             if value {
-                if matches!(left_assigned, Some(false)) {
-                    return false;
-                }
-                if matches!(right_assigned, Some(false)) {
+                if matches!(left_assigned, Some(false)) || matches!(right_assigned, Some(false)) {
                     return false;
                 }
             } else {
-                // if And is false => not(both operands true)
-                let left_true = left_assigned.unwrap_or(false);
-                let right_true = right_assigned.unwrap_or(false);
-                if left_true && right_true {
+                if matches!(left_assigned, Some(true)) && matches!(right_assigned, Some(true)) {
                     return false;
                 }
             }
@@ -97,12 +67,10 @@ fn is_consistent_with_partial(formula: &LTL, partial_truth: &[bool], closure: &[
             let right_assigned = get_assigned_truth(right.as_ref(), partial_truth, closure);
 
             if value {
-                // Or true => at least one true; conflict if both assigned false
                 if matches!(left_assigned, Some(false)) && matches!(right_assigned, Some(false)) {
                     return false;
                 }
             } else {
-                // Or false => both operands false
                 if matches!(left_assigned, Some(true)) || matches!(right_assigned, Some(true)) {
                     return false;
                 }
@@ -113,12 +81,10 @@ fn is_consistent_with_partial(formula: &LTL, partial_truth: &[bool], closure: &[
             let right_assigned = get_assigned_truth(right.as_ref(), partial_truth, closure);
 
             if value {
-                // implication true unless (left true and right false)
                 if matches!(left_assigned, Some(true)) && matches!(right_assigned, Some(false)) {
                     return false;
                 }
             } else {
-                // implication false => left true and right false
                 if matches!(left_assigned, Some(false)) || matches!(right_assigned, Some(true)) {
                     return false;
                 }
@@ -128,56 +94,33 @@ fn is_consistent_with_partial(formula: &LTL, partial_truth: &[bool], closure: &[
             // Next refers to the next state; no local constraint enforced here
         }
         LTL::Until(left, right) => {
+            let left_assigned = get_assigned_truth(left.as_ref(), partial_truth, closure);
+            let right_assigned = get_assigned_truth(right.as_ref(), partial_truth, closure);
+            
             if value {
-                // If Until is true then either right holds now, or left holds now
-                let right_assigned = get_assigned_truth(right.as_ref(), partial_truth, closure);
-                let left_assigned = get_assigned_truth(left.as_ref(), partial_truth, closure);
-
-                let right_true = right_assigned.unwrap_or(false);
-                let left_true = left_assigned.unwrap_or(false);
-
-                if !right_true && !left_true {
+                if matches!(left_assigned, Some(false)) && matches!(right_assigned, Some(false)) {
                     return false;
                 }
-
-                // If right does not hold now, then X(U) should hold in the next state if present
-                if !right_true {
-                    let xu = LTL::Next(Box::new(LTL::Until(Box::new(left.as_ref().clone()), Box::new(right.as_ref().clone()))));
-                    if let Some(i) = find_index(closure, &xu) {
-                        if i < partial_truth.len() && !partial_truth[i] {
-                            return false;
-                        }
-                    }
-                }
             } else {
-                // If Until is false then right cannot be true now
-                if matches!(get_assigned_truth(right.as_ref(), partial_truth, closure), Some(true)) {
+                if matches!(right_assigned, Some(true)) {
                     return false;
                 }
             }
         }
         LTL::Release(left, right) => {
+            let left_assigned = get_assigned_truth(left.as_ref(), partial_truth, closure);
+            let right_assigned = get_assigned_truth(right.as_ref(), partial_truth, closure);
+            
             if value {
-                let right_true = get_assigned_truth(right.as_ref(), partial_truth, closure).unwrap_or(false);
-                if !right_true {
-                    // if right not true and left not true and X(R) present and false => conflict
-                    let left_true = get_assigned_truth(left.as_ref(), partial_truth, closure).unwrap_or(false);
-                    if !left_true {
-                        let xr = LTL::Next(Box::new(LTL::Release(Box::new(left.as_ref().clone()), Box::new(right.as_ref().clone()))));
-                        if let Some(i) = find_index(closure, &xr) {
-                            if i < partial_truth.len() && !partial_truth[i] {
-                                return false;
-                            }
-                        }
-                    }
+                if matches!(right_assigned, Some(false)) {
+                    return false;
                 }
             } else {
-                if matches!(get_assigned_truth(right.as_ref(), partial_truth, closure), Some(true)) {
+                if matches!(left_assigned, Some(true)) && matches!(right_assigned, Some(true)) {
                     return false;
                 }
             }
         }
-    
         _ => {}
     }
 

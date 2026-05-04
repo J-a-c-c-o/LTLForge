@@ -7,6 +7,7 @@ mod pnf;
 mod closure;
 mod consistency;
 mod gnba;
+mod nba;
 
 use builder::PetriNetBuilder;
 use clap::{Parser, Subcommand};
@@ -47,11 +48,17 @@ enum Commands {
     Gnba {
         /// LTL specification file
         ltl_file: String,
+        /// Output Graphviz DOT
+        #[arg(long)]
+        dot: bool,
     },
     /// Produce an NBA in HOA format
     Nba {
         /// LTL specification file
         ltl_file: String,
+        /// Output Graphviz DOT
+        #[arg(long)]
+        dot: bool,
     },
     /// Check satisfiability of LTL specification
     Sat {
@@ -139,13 +146,58 @@ fn main() {
                 
             }
         }
-        Commands::Gnba { ltl_file } => {
+        Commands::Gnba { ltl_file, dot } => {
             println!("[GNBA] LTL file: {}", ltl_file);
-            // TODO: Implement GNBA generation
+            let result = ltl_parser::parse_mcc_file(&ltl_file);
+            let formulas = match result {
+                Ok(formulas) => formulas,
+                Err(e) => {
+                    eprintln!("Error parsing LTL file: {}", e);
+                    return;
+                }
+            };
+            for (name, formula) in formulas {
+                println!("[{}]", name);
+                println!("Original formula: {}", formula);
+                let gnba = gnba::GNBA::new(&formula);
+                if dot {
+                    let dot_str = gnba.to_dot();
+                    let filename = format!("{}_gnba.dot", name);
+                    std::fs::write(&filename, dot_str).expect("Unable to write DOT file");
+                    println!("Wrote DOT to {}", filename);
+                } else {
+                    gnba.pretty_print();
+                }
+                println!();
+                break;
+                
+            }
         }
-        Commands::Nba { ltl_file } => {
+        Commands::Nba { ltl_file, dot } => {
             println!("[NBA] LTL file: {}", ltl_file);
-            // TODO: Implement NBA generation
+            let result = ltl_parser::parse_mcc_file(&ltl_file);
+            let formulas = match result {
+                Ok(formulas) => formulas,
+                Err(e) => {
+                    eprintln!("Error parsing LTL file: {}", e);
+                    return;
+                }
+            };
+            for (name, formula) in formulas {
+                println!("[{}]", name);
+                println!("Original formula: {}", formula);
+                let nba = nba::NBA::new(&formula);
+                if dot {
+                    let dot_str = nba.to_dot();
+                    let filename = format!("{}_nba.dot", name);
+                    std::fs::write(&filename, dot_str).expect("Unable to write DOT file");
+                    println!("Wrote DOT to {}", filename);
+                } else {
+                    nba.pretty_print();
+                }
+                println!();
+                break;
+            }
         }
         Commands::Sat { ltl_file } => {
             println!("[SAT] LTL file: {}", ltl_file);

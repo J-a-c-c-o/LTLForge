@@ -2,11 +2,11 @@ use crate::ltl_parser::LTL;
 
 pub fn to_pnf(ltl: &LTL) -> LTL {
     let mut pnf = ltl.clone();
-    pnf_simplifications(&mut pnf);
+    // pnf_simplifications(&mut pnf);
     push_pnf_inwards(&mut pnf);
-    pnf_simplifications(&mut pnf);
+    // pnf_simplifications(&mut pnf);
     pnf_eliminate_temporal_operators(&mut pnf);
-    pnf_simplifications(&mut pnf);
+    // pnf_simplifications(&mut pnf);
     pnf
 }
 
@@ -114,6 +114,26 @@ fn pnf_eliminate_temporal_operators(expr: &mut LTL) {
             );
             pnf_eliminate_temporal_operators(expr);
         }
+        LTL::Not(inner) => {
+            pnf_eliminate_temporal_operators(inner);
+        }
+        LTL::And(left, right)
+        | LTL::Or(left, right)
+        | LTL::Until(left, right)
+        | LTL::Release(left, right)
+        | LTL::Implies(left, right)
+        | LTL::LessEqual(left, right)
+        | LTL::GreaterEqual(left, right)
+        | LTL::Greater(left, right)
+        | LTL::Less(left, right) => {
+            pnf_eliminate_temporal_operators(left);
+            pnf_eliminate_temporal_operators(right);
+        }
+
+        LTL::Next(inner) | LTL::AllPaths(inner) | LTL::SomePath(inner) => {
+            pnf_eliminate_temporal_operators(inner);
+        }
+
         _ => {}
     }
 }
