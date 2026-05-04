@@ -1,0 +1,17 @@
+Property Small-LTLCardinality-00
+  "Small hand-written example"
+  is:
+    A G (((1) <= (#tokens("P1"))) U (!((1) <= (#tokens("P1"))) & ((1) <= (#tokens("P2")))))
+  end.
+
+Property Small-LTLCardinality-01
+  "Small hand-written example"
+  is:
+    A F ((2) <= (#tokens("stp1")))
+  end.
+
+Property Small-LTLCardinality-02
+  "Small hand-written example"
+  is:
+    A G ((#tokens("P2")) <= (#tokens("P3")))
+  end.

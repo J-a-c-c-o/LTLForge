@@ -131,11 +131,19 @@ impl NBA {
         let mut s = String::new();
         s.push_str("digraph NBA {\n");
         s.push_str("  rankdir=LR;\n");
+        s.push_str("  node [shape=circle];\n");
+        
+        // Initial states from start node to initial states
+        s.push_str("  start [shape=point];\n");
+        for init in &self.initial_states {
+            s.push_str(&format!("  start -> {};\n", init));
+        }
 
         for state in &self.states {
             // Only show the state id as node label to keep DOT output concise
             s.push_str(&format!("  {} [label=\"{}\"];\n", state.id, state.id));
         }
+        
 
 
         for t in &self.transitions {
@@ -149,20 +157,9 @@ impl NBA {
 
         // Mark accepting states
         for st in &self.acceptance_condition.states {
-            s.push_str(&format!("  {} [peripheries=3];\n", st));
+            s.push_str(&format!("  {} [peripheries=2];\n", st));
         }
 
-        // Mark initial states
-        for init in &self.initial_states {
-            s.push_str(&format!("  {} [peripheries=2];\n", init));
-        }
-
-        // Mark both initial and accepting states
-        for init in &self.initial_states {
-            if self.acceptance_condition.states.contains(init) {
-                s.push_str(&format!("  {} [peripheries=4];\n", init));
-            }
-        }
 
         s.push_str("}\n");
         s

@@ -1,0 +1,6 @@
+Property Small-LTL
+  "Small hand-written example"
+  is:
+    A G (a U (!a & b))
+  end.
+

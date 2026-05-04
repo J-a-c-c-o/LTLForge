@@ -11,6 +11,7 @@ mod nba;
 
 use builder::PetriNetBuilder;
 use clap::{Parser, Subcommand};
+use std::process::Command;
 
 use crate::philosophers::{PhilosopherConfiguration};
 
@@ -51,14 +52,39 @@ enum Commands {
         /// Output Graphviz DOT
         #[arg(long)]
         dot: bool,
+
+        /// Generate PNG with dot (requires dot to be installed and in PATH)
+        #[arg(long)]
+        png: bool,
+
+        /// Open generated PNG after creating it with dot
+        #[arg(long)]
+        view: bool,
+
+        /// Custom command to open the generated file (e.g. "feh", "xdg-open", "open")
+        #[arg(long)]
+        viewer: Option<String>,
     },
     /// Produce an NBA in HOA format
     Nba {
         /// LTL specification file
         ltl_file: String,
+
         /// Output Graphviz DOT
         #[arg(long)]
         dot: bool,
+
+        /// Generate PNG with dot (requires dot to be installed and in PATH)
+        #[arg(long)]
+        png: bool,
+
+        /// Open generated PNG after creating it with dot
+        #[arg(long)]
+        view: bool,
+
+        /// Custom command to open the generated file (e.g. "feh", "xdg-open", "open")
+        #[arg(long)]
+        viewer: Option<String>,
     },
     /// Check satisfiability of LTL specification
     Sat {
@@ -146,7 +172,7 @@ fn main() {
                 
             }
         }
-        Commands::Gnba { ltl_file, dot } => {
+        Commands::Gnba { ltl_file, dot, png, view, viewer } => {
             println!("[GNBA] LTL file: {}", ltl_file);
             let result = ltl_parser::parse_mcc_file(&ltl_file);
             let formulas = match result {
@@ -160,20 +186,49 @@ fn main() {
                 println!("[{}]", name);
                 println!("Original formula: {}", formula);
                 let gnba = gnba::GNBA::new(&formula);
-                if dot {
+                if dot || png || view || viewer.is_some() {
                     let dot_str = gnba.to_dot();
-                    let filename = format!("{}_gnba.dot", name);
+                    let filename = format!("output/{}_gnba.dot", name);
+                    std::fs::create_dir_all("output").expect("Failed to create output directory");
                     std::fs::write(&filename, dot_str).expect("Unable to write DOT file");
                     println!("Wrote DOT to {}", filename);
+
+                    let dot_command_is_available = is_command_available("dot");
+                    if dot_command_is_available && (png || view || viewer.is_some()) {
+                        let output_png = format!("output/{}_gnba.png", name);
+                        let status = Command::new("dot")
+                            .args(["-Tpng", &filename, "-o", &output_png])
+                            .status();
+
+                        match status {
+                            Ok(s) if s.success() => {
+                                println!("Generated PNG with dot: {}", output_png);
+
+                                if view || viewer.is_some() {
+                                    if let Some(viewer) = &viewer {
+                                        open::with(&output_png, viewer)
+                                            .expect("Failed to open PNG with custom viewer");
+                                    } else {
+                                        open::that(&output_png)
+                                            .expect("Failed to open PNG file");
+                                    }
+                                }
+                            }
+                            Ok(s) => {
+                                eprintln!("dot failed with exit code: {:?}", s.code());
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to run dot: {}", e);
+                            }
+                        }
+                    }
                 } else {
                     gnba.pretty_print();
                 }
                 println!();
-                break;
-                
             }
         }
-        Commands::Nba { ltl_file, dot } => {
+        Commands::Nba { ltl_file, dot, png, view, viewer } => {
             println!("[NBA] LTL file: {}", ltl_file);
             let result = ltl_parser::parse_mcc_file(&ltl_file);
             let formulas = match result {
@@ -187,16 +242,46 @@ fn main() {
                 println!("[{}]", name);
                 println!("Original formula: {}", formula);
                 let nba = nba::NBA::new(&formula);
-                if dot {
+                if dot || png || view || viewer.is_some() {
                     let dot_str = nba.to_dot();
-                    let filename = format!("{}_nba.dot", name);
+                    let filename = format!("output/{}_nba.dot", name);
+                    std::fs::create_dir_all("output").expect("Failed to create output directory");
                     std::fs::write(&filename, dot_str).expect("Unable to write DOT file");
                     println!("Wrote DOT to {}", filename);
+
+                    let dot_command_is_available = is_command_available("dot");
+                    if dot_command_is_available && (png || view || viewer.is_some()) {
+                        let output_png = format!("output/{}_nba.png", name);
+                        let status = Command::new("dot")
+                            .args(["-Tpng", &filename, "-o", &output_png])
+                            .status();
+
+                        match status {
+                            Ok(s) if s.success() => {
+                                println!("Generated PNG with dot: {}", output_png);
+
+                                if view || viewer.is_some() {
+                                    if let Some(viewer) = &viewer {
+                                        open::with(&output_png, viewer)
+                                            .expect("Failed to open PNG with custom viewer");
+                                    } else {
+                                        open::that(&output_png)
+                                            .expect("Failed to open PNG file");
+                                    }
+                                }
+                            }
+                            Ok(s) => {
+                                eprintln!("dot failed with exit code: {:?}", s.code());
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to run dot: {}", e);
+                            }
+                        }
+                    }
                 } else {
                     nba.pretty_print();
                 }
                 println!();
-                break;
             }
         }
         Commands::Sat { ltl_file } => {
@@ -212,6 +297,14 @@ fn main() {
 
     }
 }
+
+fn is_command_available(command: &str) -> bool {
+    std::process::Command::new(command)
+        .arg("--version")
+        .output()
+        .is_ok()
+}
+
 
 
 fn config_generator(mode: usize, n: usize) -> Vec<PhilosopherConfiguration> {

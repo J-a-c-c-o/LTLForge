@@ -1,0 +1,11 @@
+Property Small-LTLFireability-00
+  "Small hand-written example"
+  is:
+    A G ("a"? U (!"a"? & "b"?))
+  end.
+
+Property Small-LTLFireability-01
+  "Small hand-written example"
+  is:
+    A (G !"fail"? & F "ok"?)
+  end.
