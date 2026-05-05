@@ -89,6 +89,23 @@ impl NBA {
     }
 
 
+    pub fn initial_states(&self) -> Vec<usize> {
+        self.initial_states.clone()
+    }
+
+    pub fn is_accepting(&self, state_id: usize) -> bool {
+        self.acceptance_condition.states.contains(&state_id)
+    }
+
+
+    pub fn next(&self, state_id: usize, label: &[bool]) -> Vec<usize> {
+        self.transitions.iter()
+            .filter(|t| t.from == state_id && t.label == label)
+            .map(|t| t.to)
+            .collect()
+    }
+
+
     pub fn pretty_print(&self) {
         println!("Closure:");
         for (idx, formula) in self.closure.iter().enumerate() {

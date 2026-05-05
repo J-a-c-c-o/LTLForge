@@ -207,18 +207,29 @@ fn generate_acceptance_conditions(states: &[State], closure: &[LTL]) -> Vec<Acce
     
     for (idx, formula) in closure.iter().enumerate() {
         if let LTL::Until(_left, right) = formula {
-            // F_φUψ = {S ∈ CS(φ) | φ U ψ ∉ S ∨ ψ ∈ S}
-            let right_idx = closure.iter().position(|f| f == right.as_ref());
-            let mut accepting_states = Vec::new();
-            
-            for state in states {
+            let accepting_states: Vec<usize> = states.iter().filter_map(|state| {
                 let until_false = !state.formulas[idx];
-                let right_true = right_idx.map_or(false, |i| state.formulas[i]);
+                
+                // Check if right side is true
+                let right_true = match right.as_ref() {
+                    LTL::Not(inner) => {
+                        // For negated formulas not in closure, check inner and negate
+                        closure.iter().position(|f| f == inner.as_ref())
+                            .map_or(false, |i| !state.formulas[i])
+                    }
+                    other => {
+                        // For formulas in closure, check directly
+                        closure.iter().position(|f| f == other)
+                            .map_or(false, |i| state.formulas[i])
+                    }
+                };
                 
                 if until_false || right_true {
-                    accepting_states.push(state.id);
+                    Some(state.id)
+                } else {
+                    None
                 }
-            }
+            }).collect();
             
             acceptance_conditions.push(AcceptanceCondition {
                 id: condition_id,

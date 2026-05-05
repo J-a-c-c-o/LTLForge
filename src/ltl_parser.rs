@@ -85,6 +85,11 @@ impl LTL {
             | LTL::MightyRelease(left, right) => 1 + left.size() + right.size(),
         }
     }
+
+
+    pub fn negate(&self) -> LTL {
+        LTL::Not(Box::new(self.clone()))
+    }
 }
 
 fn parse_expr(input: &str) -> IResult<&str, LTL> {

@@ -9,6 +9,7 @@ mod consistency;
 mod gnba;
 mod nba;
 mod emptyness;
+mod model_check;
 
 use builder::PetriNetBuilder;
 use clap::{Parser, Subcommand};
@@ -152,7 +153,29 @@ fn main() {
         }
         Commands::Check { pnml_file, ltl_file } => {
             println!("[Check] PNML file: {}, LTL file: {}", pnml_file, ltl_file);
-            // TODO: Implement LTL model checking
+            let petri_nets = PetriNetBuilder::build_from_file(&pnml_file);
+            if petri_nets.is_empty() {
+                eprintln!("No Petri nets found in file: {}", pnml_file);
+                return;
+            }
+            let petri_net = &petri_nets[0];
+
+            let result = ltl_parser::parse_mcc_file(&ltl_file);
+            let formulas = match result {
+                Ok(f) => f,
+                Err(e) => { eprintln!("Error parsing LTL file: {}", e); return; }
+            };
+
+            for (name, formula) in formulas {
+                println!("[{}] Checking: {}", name, formula);
+                let holds = model_check::model_check(petri_net, &formula);
+                if holds {
+                    println!("Property {} holds on the given Petri net.", name);
+                } else {
+                    println!("Property {} is violated (counterexample exists).", name);
+                }
+                println!();
+            }
         }
         Commands::Pnf { ltl_file } => {
             println!("[PNF] LTL file: {}", ltl_file);

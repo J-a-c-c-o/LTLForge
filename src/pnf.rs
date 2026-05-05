@@ -2,11 +2,9 @@ use crate::ltl_parser::LTL;
 
 pub fn to_pnf(ltl: &LTL) -> LTL {
     let mut pnf = ltl.clone();
-    // pnf_simplifications(&mut pnf);
     push_pnf_inwards(&mut pnf);
-    // pnf_simplifications(&mut pnf);
     pnf_eliminate_temporal_operators(&mut pnf);
-    // pnf_simplifications(&mut pnf);
+    pnf_simplifications(&mut pnf);
     pnf
 }
 
@@ -314,6 +312,20 @@ mod tests {
                     Box::new(LTL::Not(Box::new(LTL::Var("b".to_string())))),
                 )),
             )),
+        );
+
+        assert_eq!(pnf, expected);
+    }
+
+    #[test]
+    fn test_to_pnf_outer_negation() {
+        let ltl = LTL::Not(Box::new(LTL::Globally(Box::new(LTL::Var("a".to_string())))));
+
+        let pnf = to_pnf(&ltl);
+
+        let expected = LTL::Until(
+            Box::new(LTL::True),
+            Box::new(LTL::Not(Box::new(LTL::Var("a".to_string())))),
         );
 
         assert_eq!(pnf, expected);

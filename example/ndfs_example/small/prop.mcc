@@ -1,0 +1,8 @@
+Property example_prop "Generally Eventually p2 gets a token" is:
+A (G (F (1 <= (#tokens("p2")))))
+end.
+
+
+Property example_prop "Generally p1 has a token" is:
+A (G (1 <= (#tokens("p1"))))
+end.
