@@ -309,7 +309,10 @@ mod tests {
             Box::new(LTL::False),
             Box::new(LTL::Or(
                 Box::new(LTL::Not(Box::new(LTL::Var("a".to_string())))),
-                Box::new(LTL::Globally(Box::new(LTL::Not(Box::new(LTL::Var("b".to_string())))))),
+                Box::new(LTL::Release(
+                    Box::new(LTL::False),
+                    Box::new(LTL::Not(Box::new(LTL::Var("b".to_string())))),
+                )),
             )),
         );
 

@@ -8,6 +8,7 @@ mod closure;
 mod consistency;
 mod gnba;
 mod nba;
+mod emptyness;
 
 use builder::PetriNetBuilder;
 use clap::{Parser, Subcommand};
@@ -286,7 +287,22 @@ fn main() {
         }
         Commands::Sat { ltl_file } => {
             println!("[SAT] LTL file: {}", ltl_file);
-            // TODO: Implement satisfiability checking
+            let result = ltl_parser::parse_mcc_file(&ltl_file);
+            let formulas = match result {
+                Ok(formulas) => formulas,
+                Err(e) => {
+                    eprintln!("Error parsing LTL file: {}", e);
+                    return;
+                }
+            };
+            for (name, formula) in formulas {
+                println!("[{}]", name);
+                println!("Original formula: {}", formula);
+                let (nba_is_satisfiable, gnba_is_satisfiable) = emptyness::is_satisfiable(&formula);
+                println!("NBA Satisfiable: {}", nba_is_satisfiable);
+                println!("GNBA Satisfiable: {}", gnba_is_satisfiable);
+                println!();
+            }
         }
         Commands::Convert { philosophers, output_file, mode } => {
             println!("[Convert] Philosophers: {}, Output file: {}", philosophers, output_file);
