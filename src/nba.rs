@@ -138,6 +138,7 @@ impl NBA {
                 LTL::Var(name) => Some(name.clone()),
                 LTL::True => Some("true".to_string()),
                 LTL::False => Some("false".to_string()),
+                LTL::Fireable(name) => Some(format!("\"{}\"?", name)),
                 LTL::LessEqual(_, _) | LTL::GreaterEqual(_, _) | LTL::Greater(_, _) | LTL::Less(_, _) => {
                     Some(format!("{}", formula))
                 }
