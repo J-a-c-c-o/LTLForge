@@ -190,6 +190,7 @@ fn compute_label(state: &State, closure: &[LTL]) -> Vec<bool> {
                 LTL::Var(_) => Some(state.formulas[idx]),
                 LTL::True => Some(true),
                 LTL::False => Some(false),
+                LTL::Fireable(_) => Some(state.formulas[idx]),
                 LTL::LessEqual(_, _) => Some(state.formulas[idx]),
                 LTL::GreaterEqual(_, _) => Some(state.formulas[idx]),
                 LTL::Greater(_, _) => Some(state.formulas[idx]),
@@ -249,6 +250,7 @@ impl GNBA {
                 LTL::Var(name) => Some(name.clone()),
                 LTL::True => Some("true".to_string()),
                 LTL::False => Some("false".to_string()),
+                LTL::Fireable(name) => Some(format!("\"{}\"?", name)),
                 LTL::LessEqual(_, _) | LTL::GreaterEqual(_, _) | LTL::Greater(_, _) | LTL::Less(_, _) => {
                     Some(format!("{}", formula))
                 }

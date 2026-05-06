@@ -6,3 +6,7 @@ end.
 Property example_prop "Generally p1 has a token" is:
 A (G (1 <= (#tokens("p1"))))
 end.
+
+Property example_prop "in the next state t1 can be fired" is:
+A (X ("t1"?))
+end.
