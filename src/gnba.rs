@@ -132,14 +132,27 @@ fn generate_transitions(states: &[State], closure: &[LTL]) -> Vec<Transition> {
     transitions
 }
 
+fn eval_in_state(state: &State, closure: &[LTL], formula: &LTL) -> Option<bool> {
+    if let Some(idx) = closure.iter().position(|f| f == formula) {
+        Some(state.formulas[idx])
+    } else if let LTL::Not(inner) = formula {
+        if let Some(idx) = closure.iter().position(|f| f == inner.as_ref()) {
+            Some(!state.formulas[idx])
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
 /// Check if a transition from one state to another satisfies the transition rules
 fn is_valid_transition(from_state: &State, to_state: &State, closure: &[LTL]) -> bool {
     for (idx, formula) in closure.iter().enumerate() {
         match formula {
             LTL::Next(inner) => {
-                if let Some(inner_idx) = closure.iter().position(|f| f == inner.as_ref()) {
+                if let Some(inner_next) = eval_in_state(to_state, closure, inner.as_ref()) {
                     let x_curr = from_state.formulas[idx];
-                    let inner_next = to_state.formulas[inner_idx];
                     
                     if x_curr != inner_next {
                         return false;
@@ -147,26 +160,22 @@ fn is_valid_transition(from_state: &State, to_state: &State, closure: &[LTL]) ->
                 }
             }
             LTL::Until(left, right) => {
-                let left_curr = closure.iter().position(|f| f == left.as_ref())
-                    .map_or(false, |i| from_state.formulas[i]);
-                let right_curr = closure.iter().position(|f| f == right.as_ref())
-                    .map_or(false, |i| from_state.formulas[i]);
+                let left_curr = eval_in_state(from_state, closure, left.as_ref()).unwrap_or(false);
+                let right_curr = eval_in_state(from_state, closure, right.as_ref()).unwrap_or(false);
                 
                 let u_curr = from_state.formulas[idx];
-                let u_next = to_state.formulas[idx];
+                let u_next = eval_in_state(to_state, closure, formula).unwrap_or(false);
 
                 if u_curr != (right_curr || (left_curr && u_next)) {
                     return false;
                 }
             }
             LTL::Release(left, right) => {
-                let left_curr = closure.iter().position(|f| f == left.as_ref())
-                    .map_or(false, |i| from_state.formulas[i]);
-                let right_curr = closure.iter().position(|f| f == right.as_ref())
-                    .map_or(false, |i| from_state.formulas[i]);
+                let left_curr = eval_in_state(from_state, closure, left.as_ref()).unwrap_or(false);
+                let right_curr = eval_in_state(from_state, closure, right.as_ref()).unwrap_or(false);
                 
                 let r_curr = from_state.formulas[idx];
-                let r_next = to_state.formulas[idx];
+                let r_next = eval_in_state(to_state, closure, formula).unwrap_or(false);
 
                 if r_curr != (right_curr && (left_curr || r_next)) {
                     return false;

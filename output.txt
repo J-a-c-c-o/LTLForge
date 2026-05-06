@@ -1,0 +1,25 @@
+   Compiling ltltools v0.1.0 (/home/jacco/Documents/ltltools)
+warning: unused variable: `configurations`
+   --> src/philosophers.rs:147:44
+    |
+147 | ...ilosophers(n: usize, configurations: Vec<PhilosopherConfiguration>) ...
+    |                         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_configurations`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ltltools` (bin "ltltools") generated 1 warning (run `cargo fix --bin "ltltools" -p ltltools` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1.60s
+     Running `target/release/ltltools check example/ndfs_example/small/net.pnml example/ndfs_example/small/prop.mcc`
+[Check] PNML file: example/ndfs_example/small/net.pnml, LTL file: example/ndfs_example/small/prop.mcc
+[example_prop] Checking: G F (1 <= #tokens("p2"))
+No counterexample found in the product; the property holds.
+Property example_prop holds on the given Petri net.
+
+[example_prop] Checking: G (1 <= #tokens("p1"))
+Counterexample found: the property does NOT hold on the Petri net.
+Property example_prop is violated (counterexample exists).
+
+[example_prop] Checking: X (("t1"? | "t2"?) | "t3"?)
+Counterexample found: the property does NOT hold on the Petri net.
+Property example_prop is violated (counterexample exists).
+

@@ -7,6 +7,10 @@ Property example_prop "Generally p1 has a token" is:
 A (G (1 <= (#tokens("p1"))))
 end.
 
-Property example_prop "in the next state t1 can be fired" is:
-A G (("t1"? || "t2"? || "t3"?))
+Property example_prop "Generally Eventually t1 can be fired" is:
+A G F (("t1"?))
+end.
+
+Property example_prop "Generally Next t2 or t3 can be fired" is:
+A G X (("t2"? || "t3"?))
 end.
