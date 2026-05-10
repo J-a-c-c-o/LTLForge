@@ -253,7 +253,7 @@ mod tests {
     
     
     #[test]
-    fn test_build_dining_philosophers_matches_struct_state_space() {
+    fn test_build_dining_philosophers_matches() {
         let cases = vec![
             vec![
                 PhilosopherConfiguration { allowed_left: true, allowed_right: true },
