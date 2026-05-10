@@ -95,10 +95,7 @@ type ReachableState = (Vec<Philosopher>, Vec<bool>);
 pub fn compute_reachable_states_and_deadlocks(
     n: usize,
     configurations: Vec<PhilosopherConfiguration>,
-) -> (
-    HashSet<ReachableState>,
-    HashSet<ReachableState>,
-) {
+) -> (HashSet<ReachableState>, HashSet<ReachableState>) {
     let philosophers: Vec<Philosopher> = (0..n)
         .map(|i| Philosopher::new(i, n, configurations[i].clone()))
         .collect();
@@ -159,7 +156,7 @@ pub fn build_dining_philosophers(
 
     for (i, config) in configurations.iter().enumerate().take(n) {
         let next_i = (i + 1) % n;
-        
+
         builder = builder.add_place(format!("thinking{}", i), 1);
         builder = builder.add_place(format!("eating{}", i), 0);
         builder = builder.add_place(format!("inbetweenL{}", i), 0);

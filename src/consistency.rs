@@ -40,14 +40,12 @@ fn is_consistent_with_partial(formula: &LTL, partial_truth: &[bool], closure: &[
     let value = partial_truth[idx];
 
     match formula {
-        LTL::True
-            if !value => {
-                return false;
-            }
-        LTL::False
-            if value => {
-                return false;
-            }
+        LTL::True if !value => {
+            return false;
+        }
+        LTL::False if value => {
+            return false;
+        }
         LTL::And(left, right) => {
             let left_assigned = get_assigned_truth(left.as_ref(), partial_truth, closure);
             let right_assigned = get_assigned_truth(right.as_ref(), partial_truth, closure);
@@ -131,16 +129,18 @@ fn get_assigned_truth(formula: &LTL, partial_truth: &[bool], closure: &[LTL]) ->
     match formula {
         LTL::Not(inner) => {
             if let Some(i) = find_index(closure, inner.as_ref())
-                && i < partial_truth.len() {
-                    return Some(!partial_truth[i]);
-                }
+                && i < partial_truth.len()
+            {
+                return Some(!partial_truth[i]);
+            }
             None
         }
         _ => {
             if let Some(i) = find_index(closure, formula)
-                && i < partial_truth.len() {
-                    return Some(partial_truth[i]);
-                }
+                && i < partial_truth.len()
+            {
+                return Some(partial_truth[i]);
+            }
             None
         }
     }

@@ -87,9 +87,11 @@ fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool>
         match formula {
             LTL::True => Some(true),
             LTL::False => Some(false),
-            LTL::Var(name) => {
-                petri.places.iter().position(|p| &p.id == name).map(|idx| marking.tokens.get(idx).copied().unwrap_or(0) > 0)
-            }
+            LTL::Var(name) => petri
+                .places
+                .iter()
+                .position(|p| &p.id == name)
+                .map(|idx| marking.tokens.get(idx).copied().unwrap_or(0) > 0),
             LTL::Fireable(name) => {
                 if let Some(trans) = petri.transitions.iter().find(|t| &t.id == name) {
                     Some(trans.is_fireable_tokens(&marking.tokens))
@@ -191,10 +193,9 @@ fn dfs1(ctx: &mut NDFSContext, state: CombinedState) -> bool {
     ctx.stack.insert(state.clone());
 
     for succ in ctx.successors(&state) {
-        if !ctx.visited.contains(&(succ.clone(), 0))
-            && dfs1(ctx, succ.clone()) {
-                return true;
-            }
+        if !ctx.visited.contains(&(succ.clone(), 0)) && dfs1(ctx, succ.clone()) {
+            return true;
+        }
     }
 
     if ctx.is_accepting(&state) {
@@ -216,10 +217,9 @@ fn dfs2(ctx: &mut NDFSContext, state: CombinedState) -> bool {
         if ctx.seed == Some((succ.clone(), 1)) {
             return true;
         }
-        if !ctx.visited.contains(&(succ.clone(), 1))
-            && dfs2(ctx, succ.clone()) {
-                return true;
-            }
+        if !ctx.visited.contains(&(succ.clone(), 1)) && dfs2(ctx, succ.clone()) {
+            return true;
+        }
     }
 
     ctx.stack.remove(&state);

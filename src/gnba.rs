@@ -163,7 +163,10 @@ fn eval_in_state(state: &State, closure: &[LTL], formula: &LTL) -> Option<bool> 
     if let Some(idx) = closure.iter().position(|f| f == formula) {
         Some(state.formulas[idx])
     } else if let LTL::Not(inner) = formula {
-        closure.iter().position(|f| f == inner.as_ref()).map(|idx| !state.formulas[idx])
+        closure
+            .iter()
+            .position(|f| f == inner.as_ref())
+            .map(|idx| !state.formulas[idx])
     } else {
         None
     }
