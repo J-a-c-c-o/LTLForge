@@ -77,7 +77,6 @@ impl NBA {
                 .collect(),
         };
 
-
         NBA {
             closure: closure,
             states,
@@ -137,8 +136,11 @@ impl NBA {
 
 impl NBA {
     fn gnba_state_label(&self, gnba_state_id: usize) -> Vec<bool> {
-        self.gnba.closure.iter().enumerate().filter_map(|(idx, formula)| {
-            match formula {
+        self.gnba
+            .closure
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, formula)| match formula {
                 LTL::Var(_)
                 | LTL::True
                 | LTL::False
@@ -148,8 +150,8 @@ impl NBA {
                 | LTL::Greater(_, _)
                 | LTL::Less(_, _) => Some(self.gnba.states[gnba_state_id].formulas[idx]),
                 _ => None,
-            }
-        }).collect()
+            })
+            .collect()
     }
 
     /// closure + state to vector of LTL
@@ -168,18 +170,19 @@ impl NBA {
             .collect()
     }
 
-
     /// Generates transitions for the NBA based on the states and closure
     fn generate_transitions(&self) -> Vec<Transition> {
         let mut transitions = Vec::new();
         for transition in &self.gnba.all_transitions() {
             for acc_id in 0..self.gnba.acceptance_conditions.len() {
-                let from_new_id = self.new_to_gnba
+                let from_new_id = self
+                    .new_to_gnba
                     .iter()
                     .find(|(orig_id, acc, _)| *orig_id == transition.from && *acc == acc_id)
                     .unwrap()
                     .2;
-                let to_new_id = self.new_to_gnba
+                let to_new_id = self
+                    .new_to_gnba
                     .iter()
                     .find(|(orig_id, acc, _)| {
                         *orig_id == transition.to
@@ -196,7 +199,6 @@ impl NBA {
         }
         transitions
     }
-
 }
 
 impl NBA {
@@ -227,7 +229,6 @@ impl NBA {
             self.acceptance_condition.id, self.acceptance_condition.states
         );
     }
-
 
     pub fn to_dot(&self) -> String {
         let atomic_names: Vec<String> = self
@@ -289,4 +290,3 @@ impl NBA {
         s
     }
 }
-

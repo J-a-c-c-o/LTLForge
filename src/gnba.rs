@@ -59,7 +59,7 @@ impl GNBA {
 
         result
     }
-    
+
     pub fn all_transitions(&self) -> Vec<Transition> {
         let mut transitions = Vec::new();
         for from_state in &self.states {
@@ -174,7 +174,6 @@ impl GNBA {
         s
     }
 }
-
 
 /// closure + state to vector of LTL
 fn state_to_formulas(state: &State, closure: &[LTL]) -> Vec<LTL> {
@@ -364,7 +363,6 @@ fn generate_acceptance_conditions(states: &[State], closure: &[LTL]) -> Vec<Acce
 
     acceptance_conditions
 }
-
 
 #[cfg(test)]
 mod tests {
