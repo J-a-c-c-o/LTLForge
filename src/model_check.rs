@@ -153,14 +153,19 @@ fn ndfs(petri: &PetriNet, nba: &NBA) -> bool {
         stack2: HashSet::new(),
     };
 
-    for q0 in nba.initial_states() {
-        let init = CombinedState {
-            petri_state: petri.initial_state(),
-            nba_state: q0,
-        };
+    let initial_marking = petri.initial_state();
+    let initial_label = compute_label(&initial_marking, petri, nba);
 
-        if dfs1(&mut ctx, init) {
-            return true;
+    for q0 in nba.initial_states() {
+        for q_start in nba.next(q0, &initial_label) {
+            let init = CombinedState {
+                petri_state: initial_marking.clone(),
+                nba_state: q_start,
+            };
+
+            if dfs1(&mut ctx, init) {
+                return true;
+            }
         }
     }
 

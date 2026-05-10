@@ -129,7 +129,6 @@ fn generate_transitions(states: &[State], closure: &[LTL]) -> Vec<Transition> {
         // Find all valid successor states
         for to_state in states {
             if is_valid_transition(from_state, to_state, closure) {
-                // Calculate the label (atomic propositions true in from_state)
                 let label = compute_label(from_state, closure);
                 transitions.push(Transition {
                     from: from_state.id,
@@ -207,14 +206,9 @@ fn compute_label(state: &State, closure: &[LTL]) -> Vec<bool> {
     closure.iter().enumerate()
         .filter_map(|(idx, formula)| {
             match formula {
-                LTL::Var(_) => Some(state.formulas[idx]),
-                LTL::True => Some(true),
-                LTL::False => Some(false),
-                LTL::Fireable(_) => Some(state.formulas[idx]),
-                LTL::LessEqual(_, _) => Some(state.formulas[idx]),
-                LTL::GreaterEqual(_, _) => Some(state.formulas[idx]),
-                LTL::Greater(_, _) => Some(state.formulas[idx]),
-                LTL::Less(_, _) => Some(state.formulas[idx]),
+                LTL::Var(_) | LTL::True | LTL::False | LTL::Fireable(_) | LTL::LessEqual(_, _) | LTL::GreaterEqual(_, _) | LTL::Greater(_, _) | LTL::Less(_, _) => {
+                    Some(state.formulas[idx])
+                }
                 _ => None,
             }
         })
