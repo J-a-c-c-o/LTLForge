@@ -1,6 +1,6 @@
 use crate::gnba::GNBA;
-use crate::nba::NBA;
 use crate::ltl_parser::LTL;
+use crate::nba::NBA;
 
 pub fn is_satisfiable(ltl: &LTL) -> (bool, bool) {
     let gnba = GNBA::new(ltl);
@@ -151,4 +151,38 @@ fn dfs2_gnba(ctx: &mut NDFSContextGNBA, state: usize) -> bool {
     
     ctx.stack2.remove(&state);
     false
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::gnba::GNBA;
+    use crate::ltl_parser::parse_ltl;
+    use crate::nba::NBA;
+
+    #[test]
+    fn test_emptiness_on_known_formulas() {
+        let cases = [
+            ("F a", false),
+            ("G (a -> F b)", false),
+            ("a & !a", true),
+            ("G false", true),
+        ];
+
+        for (formula, expected_empty) in cases {
+            let (_, ltl) = parse_ltl(formula).unwrap();
+            let (nba_sat, gnba_sat) = is_satisfiable(&ltl);
+
+            assert_eq!(nba_sat, !expected_empty, "NBA mismatch for {formula}");
+            assert_eq!(gnba_sat, !expected_empty, "GNBA mismatch for {formula}");
+
+            let gnba = GNBA::new(&ltl);
+            let nba = NBA::new(&ltl);
+
+            assert_eq!(check_emptyness_gnba(&gnba), expected_empty, "GNBA emptiness mismatch for {formula}");
+            assert_eq!(check_emptyness_nba(&nba), expected_empty, "NBA emptiness mismatch for {formula}");
+        }
+    }
+
 }

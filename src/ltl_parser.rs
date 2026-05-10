@@ -351,7 +351,7 @@ fn parse_implies(input: &str) -> IResult<&str, LTL> {
     }
 }
 
-fn parse_ltl(input: &str) -> IResult<&str, LTL> {
+pub(crate) fn parse_ltl(input: &str) -> IResult<&str, LTL> {
     let (input, ltl) = parse_implies(input)?;
 
     let initial_ltl = match ltl {

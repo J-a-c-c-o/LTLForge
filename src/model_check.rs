@@ -10,7 +10,7 @@ pub fn model_check(petri_net: &PetriNet, ltl: &LTL) -> bool {
     let nba = NBA::new(&negated_ltl);
     let is_empty = check_emptyness_nba(&nba);
     if is_empty {
-        println!("The property holds on the Petri net.");
+        println!("The language of the NBA is empty, which means the original LTL formula is valid on all traces of the Petri net.");
         return true;
     }
 

@@ -312,7 +312,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_GNBA_construction() {
+    fn test_gnba_construction() {
         let formula = LTL::Until(
             Box::new(LTL::Var("a".to_string())),
             Box::new(LTL::And(
@@ -322,23 +322,10 @@ mod tests {
         );
 
         let gnba = GNBA::new(&formula);
-        println!("Closure: {:?}", gnba.closure);
-        println!("States:");
-        for state in &gnba.states {
-            println!("  State {}: {:?}", state.id, state.formulas);
-        }
-
-        println!("Initial states: {:?}", gnba.initial_states);
-        println!("Transitions:");
-        for transition in &gnba.transitions {
-            println!("  {} --{:?}--> {}", transition.from, transition.label, transition.to);
-        }
-
-        println!("Acceptance conditions:");
-        for condition in &gnba.acceptance_conditions {
-            println!("  Condition {}: states {:?}", condition.id, condition.states);
-        }
-
-        panic!("Test complete - manual verification needed");
+        assert_eq!(gnba.closure.len(), 4);
+        assert_eq!(gnba.states.len(), 6);
+        assert_eq!(gnba.initial_states.len(), 3);
+        assert_eq!(gnba.transitions.len(), 24);
+        assert_eq!(gnba.acceptance_conditions.len(), 1);
     }
 }

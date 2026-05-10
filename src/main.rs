@@ -1,6 +1,6 @@
 mod builder;
 mod petri_net;
-mod algorithms;
+mod explorer;
 mod philosophers;
 mod ltl_parser;
 mod pnf;
@@ -130,7 +130,7 @@ fn main() {
             let (states, deadlocks) =match generic {
                 true => {
                     let petri_net = philosophers::build_dining_philosophers(philosophers, config.clone());
-                    let stats = algorithms::get_reachability_stats(&petri_net);
+                    let stats = explorer::get_reachability_stats(&petri_net);
                     (stats.reachable_count, stats.deadlock_count)
                 }
                 false => {
@@ -147,7 +147,7 @@ fn main() {
 
             let petri_net = &PetriNetBuilder::build_from_file(&pnml_file)[0];
 
-            let stats = algorithms::get_reachability_stats(&petri_net);
+            let stats = explorer::get_reachability_stats(&petri_net);
             println!("Reachable states: {}", stats.reachable_count);
             println!("Deadlocks: {}", stats.deadlock_count);
         }
