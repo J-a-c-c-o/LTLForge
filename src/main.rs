@@ -151,7 +151,7 @@ fn main() {
 
             let petri_net = &PetriNetBuilder::build_from_file(&pnml_file)[0];
 
-            let stats = explorer::get_reachability_stats(&petri_net);
+            let stats = explorer::get_reachability_stats(petri_net);
             println!("Reachable states: {}", stats.reachable_count);
             println!("Deadlocks: {}", stats.deadlock_count);
         }

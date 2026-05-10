@@ -87,7 +87,7 @@ impl PetriNet {
                 if let Some(place) = self.places.get(incoming_index as usize) {
                     pnml.push_str(&format!(
                         "<arc id=\"{}\" source=\"{}\" target=\"{}\" />\n",
-                        format!("arc_{}_{}", place.id, transition.id),
+                        format_args!("arc_{}_{}", place.id, transition.id),
                         place.id,
                         transition.id
                     ));
@@ -97,7 +97,7 @@ impl PetriNet {
                 if let Some(place) = self.places.get(outgoing_index as usize) {
                     pnml.push_str(&format!(
                         "<arc id=\"{}\" source=\"{}\" target=\"{}\" />\n",
-                        format!("arc_{}_{}", transition.id, place.id),
+                        format_args!("arc_{}_{}", transition.id, place.id),
                         transition.id,
                         place.id
                     ));

@@ -53,8 +53,8 @@ fn remove_negate(ltl: &LTL) -> LTL {
     }
 }
 
-fn sort_closure(closure: &mut Vec<LTL>) {
-    closure.sort_by(|a, b| a.size().cmp(&b.size()));
+fn sort_closure(closure: &mut [LTL]) {
+    closure.sort_by_key(|a| a.size());
 }
 
 #[cfg(test)]

@@ -18,10 +18,10 @@ pub fn model_check(petri_net: &PetriNet, ltl: &LTL) -> bool {
     let has_counterexample = ndfs(petri_net, &nba);
     if has_counterexample {
         println!("Counterexample found: the property does NOT hold on the Petri net.");
-        return false;
+        false
     } else {
         println!("No counterexample found in the product; the property holds.");
-        return true;
+        true
     }
 }
 
@@ -49,7 +49,7 @@ impl<'a> NDFSContext<'a> {
         let enabled = self.petri.next_states(&state.petri_state);
 
         for next_marking in enabled {
-            let label = compute_label(&next_marking, self.petri, &self.nba);
+            let label = compute_label(&next_marking, self.petri, self.nba);
 
             let next_nba_states = self.nba.next(state.nba_state, &label);
 
@@ -88,11 +88,7 @@ fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool>
             LTL::True => Some(true),
             LTL::False => Some(false),
             LTL::Var(name) => {
-                if let Some(idx) = petri.places.iter().position(|p| &p.id == name) {
-                    Some(marking.tokens.get(idx).copied().unwrap_or(0) > 0)
-                } else {
-                    None
-                }
+                petri.places.iter().position(|p| &p.id == name).map(|idx| marking.tokens.get(idx).copied().unwrap_or(0) > 0)
             }
             LTL::Fireable(name) => {
                 if let Some(trans) = petri.transitions.iter().find(|t| &t.id == name) {
@@ -195,11 +191,10 @@ fn dfs1(ctx: &mut NDFSContext, state: CombinedState) -> bool {
     ctx.stack.insert(state.clone());
 
     for succ in ctx.successors(&state) {
-        if !ctx.visited.contains(&(succ.clone(), 0)) {
-            if dfs1(ctx, succ.clone()) {
+        if !ctx.visited.contains(&(succ.clone(), 0))
+            && dfs1(ctx, succ.clone()) {
                 return true;
             }
-        }
     }
 
     if ctx.is_accepting(&state) {
@@ -221,11 +216,10 @@ fn dfs2(ctx: &mut NDFSContext, state: CombinedState) -> bool {
         if ctx.seed == Some((succ.clone(), 1)) {
             return true;
         }
-        if !ctx.visited.contains(&(succ.clone(), 1)) {
-            if dfs2(ctx, succ.clone()) {
+        if !ctx.visited.contains(&(succ.clone(), 1))
+            && dfs2(ctx, succ.clone()) {
                 return true;
             }
-        }
     }
 
     ctx.stack.remove(&state);

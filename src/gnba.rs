@@ -163,11 +163,7 @@ fn eval_in_state(state: &State, closure: &[LTL], formula: &LTL) -> Option<bool> 
     if let Some(idx) = closure.iter().position(|f| f == formula) {
         Some(state.formulas[idx])
     } else if let LTL::Not(inner) = formula {
-        if let Some(idx) = closure.iter().position(|f| f == inner.as_ref()) {
-            Some(!state.formulas[idx])
-        } else {
-            None
-        }
+        closure.iter().position(|f| f == inner.as_ref()).map(|idx| !state.formulas[idx])
     } else {
         None
     }
@@ -255,14 +251,14 @@ fn generate_acceptance_conditions(states: &[State], closure: &[LTL]) -> Vec<Acce
                             closure
                                 .iter()
                                 .position(|f| f == inner.as_ref())
-                                .map_or(false, |i| !state.formulas[i])
+                                .is_some_and(|i| !state.formulas[i])
                         }
                         other => {
                             // For formulas in closure, check directly
                             closure
                                 .iter()
                                 .position(|f| f == other)
-                                .map_or(false, |i| state.formulas[i])
+                                .is_some_and(|i| state.formulas[i])
                         }
                     };
 
