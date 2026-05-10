@@ -7,7 +7,6 @@ pub struct GNBA {
     pub closure: Vec<LTL>,
     pub states: Vec<State>,
     pub initial_states: Vec<usize>,
-    pub transitions: Vec<Transition>,
     pub acceptance_conditions: Vec<AcceptanceCondition>,
 }
 
@@ -33,7 +32,6 @@ impl GNBA {
         let closure = compute_closure(&pnf);
         let states = generate_states(&closure);
         let initial_states = find_initial_states(&states);
-        let transitions = generate_transitions(&states, &closure);
         let mut acceptance_conditions = generate_acceptance_conditions(&states, &closure);
         if acceptance_conditions.is_empty() {
             acceptance_conditions.push(AcceptanceCondition {
@@ -45,17 +43,38 @@ impl GNBA {
             closure,
             states,
             initial_states,
-            transitions,
             acceptance_conditions,
         }
     }
 
     pub fn successors(&self, state_id: usize) -> Vec<usize> {
-        self.transitions
-            .iter()
-            .filter(|t| t.from == state_id)
-            .map(|t| t.to)
-            .collect()
+        let mut result = Vec::new();
+        let from_state = &self.states[state_id];
+
+        for to_state in &self.states {
+            if is_valid_transition(from_state, to_state, &self.closure) {
+                result.push(to_state.id);
+            }
+        }
+
+        result
+    }
+    
+    pub fn all_transitions(&self) -> Vec<Transition> {
+        let mut transitions = Vec::new();
+        for from_state in &self.states {
+            for to_state in &self.states {
+                if is_valid_transition(from_state, to_state, &self.closure) {
+                    let label = compute_label(from_state, &self.closure);
+                    transitions.push(Transition {
+                        from: from_state.id,
+                        to: to_state.id,
+                        label,
+                    });
+                }
+            }
+        }
+        transitions
     }
 
     pub fn is_accepting(&self, state_id: usize) -> bool {
@@ -63,7 +82,9 @@ impl GNBA {
             .iter()
             .any(|cond| cond.states.contains(&state_id))
     }
+}
 
+impl GNBA {
     pub fn pretty_print(&self) {
         println!("Closure:");
         for (idx, formula) in self.closure.iter().enumerate() {
@@ -78,7 +99,7 @@ impl GNBA {
 
         println!("Initial states: {:?}", self.initial_states);
         println!("Transitions:");
-        for transition in &self.transitions {
+        for transition in &generate_transitions(&self.states, &self.closure) {
             println!(
                 "  {} --{:?}--> {}",
                 transition.from, transition.label, transition.to
@@ -93,7 +114,67 @@ impl GNBA {
             );
         }
     }
+
+    pub fn to_dot(&self) -> String {
+        let atomic_names: Vec<String> = self
+            .closure
+            .iter()
+            .filter_map(|formula| match formula {
+                LTL::Var(name) => Some(name.clone()),
+                LTL::True => Some("true".to_string()),
+                LTL::False => Some("false".to_string()),
+                LTL::Fireable(name) => Some(format!("\"{}\"?", name)),
+                LTL::LessEqual(_, _)
+                | LTL::GreaterEqual(_, _)
+                | LTL::Greater(_, _)
+                | LTL::Less(_, _) => Some(format!("{}", formula)),
+                _ => None,
+            })
+            .collect();
+
+        let mut s = String::new();
+        s.push_str("digraph GNBA {\n");
+        s.push_str("  rankdir=LR;\n");
+        s.push_str("  start [shape=point];\n");
+
+        for state in &self.states {
+            // Only show the state id as node label — formulas are often unreadable
+            s.push_str(&format!("  {} [label=\"{}\"];\n", state.id, state.id));
+        }
+
+        for init in &self.initial_states {
+            s.push_str(&format!("  start -> {};\n", init));
+        }
+
+        for t in &generate_transitions(&self.states, &self.closure) {
+            let label_items: Vec<String> = atomic_names
+                .iter()
+                .zip(t.label.iter())
+                .filter_map(|(name, &b)| if b { Some(name.clone()) } else { None })
+                .collect();
+            let label_str = if label_items.is_empty() {
+                "".to_string()
+            } else {
+                label_items.join(",")
+            };
+            let escaped = label_str.replace('"', "\\\"");
+            s.push_str(&format!(
+                "  {} -> {} [label=\"{}\"];\n",
+                t.from, t.to, escaped
+            ));
+        }
+
+        for condition in &self.acceptance_conditions {
+            for st in &condition.states {
+                s.push_str(&format!("  {} [peripheries=2];\n", st));
+            }
+        }
+
+        s.push_str("}\n");
+        s
+    }
 }
+
 
 /// closure + state to vector of LTL
 fn state_to_formulas(state: &State, closure: &[LTL]) -> Vec<LTL> {
@@ -284,66 +365,6 @@ fn generate_acceptance_conditions(states: &[State], closure: &[LTL]) -> Vec<Acce
     acceptance_conditions
 }
 
-impl GNBA {
-    pub fn to_dot(&self) -> String {
-        let atomic_names: Vec<String> = self
-            .closure
-            .iter()
-            .filter_map(|formula| match formula {
-                LTL::Var(name) => Some(name.clone()),
-                LTL::True => Some("true".to_string()),
-                LTL::False => Some("false".to_string()),
-                LTL::Fireable(name) => Some(format!("\"{}\"?", name)),
-                LTL::LessEqual(_, _)
-                | LTL::GreaterEqual(_, _)
-                | LTL::Greater(_, _)
-                | LTL::Less(_, _) => Some(format!("{}", formula)),
-                _ => None,
-            })
-            .collect();
-
-        let mut s = String::new();
-        s.push_str("digraph GNBA {\n");
-        s.push_str("  rankdir=LR;\n");
-        s.push_str("  start [shape=point];\n");
-
-        for state in &self.states {
-            // Only show the state id as node label — formulas are often unreadable
-            s.push_str(&format!("  {} [label=\"{}\"];\n", state.id, state.id));
-        }
-
-        for init in &self.initial_states {
-            s.push_str(&format!("  start -> {};\n", init));
-        }
-
-        for t in &self.transitions {
-            let label_items: Vec<String> = atomic_names
-                .iter()
-                .zip(t.label.iter())
-                .filter_map(|(name, &b)| if b { Some(name.clone()) } else { None })
-                .collect();
-            let label_str = if label_items.is_empty() {
-                "".to_string()
-            } else {
-                label_items.join(",")
-            };
-            let escaped = label_str.replace('"', "\\\"");
-            s.push_str(&format!(
-                "  {} -> {} [label=\"{}\"];\n",
-                t.from, t.to, escaped
-            ));
-        }
-
-        for condition in &self.acceptance_conditions {
-            for st in &condition.states {
-                s.push_str(&format!("  {} [peripheries=2];\n", st));
-            }
-        }
-
-        s.push_str("}\n");
-        s
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -363,7 +384,7 @@ mod tests {
         assert_eq!(gnba.closure.len(), 4);
         assert_eq!(gnba.states.len(), 6);
         assert_eq!(gnba.initial_states.len(), 3);
-        assert_eq!(gnba.transitions.len(), 24);
+        assert_eq!(gnba.all_transitions().len(), 24);
         assert_eq!(gnba.acceptance_conditions.len(), 1);
     }
 }

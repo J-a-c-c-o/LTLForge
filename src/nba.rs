@@ -5,8 +5,10 @@ pub struct NBA {
     pub closure: Vec<LTL>,
     pub states: Vec<State>,
     pub initial_states: Vec<usize>,
-    pub transitions: Vec<Transition>,
     pub acceptance_condition: AcceptanceCondition,
+    new_to_gnba: Vec<(usize, usize, usize)>,
+    gnba_to_new: std::collections::HashMap<(usize, usize), usize>,
+    gnba: GNBA,
 }
 
 pub struct State {
@@ -31,8 +33,10 @@ impl NBA {
 
         // Create x copies of each accepting state, where x is the number of acceptance conditions
         let mut states = Vec::new();
-        let mut state_mapping = Vec::new(); // Maps (original_state_id, acceptance_condition_id) to new_state_id
+        let mut new_to_gnba = Vec::new();
+        let mut gnba_to_new = std::collections::HashMap::new();
         let mut new_state_id = 0;
+        let closure = gnba.closure.clone();
 
         for state in &gnba.states {
             for acc_id in 0..gnba.acceptance_conditions.len() {
@@ -40,7 +44,8 @@ impl NBA {
                     id: new_state_id,
                     formulas: state.formulas.clone(),
                 });
-                state_mapping.push((state.id, acc_id, new_state_id));
+                new_to_gnba.push((state.id, acc_id, new_state_id));
+                gnba_to_new.insert((state.id, acc_id), new_state_id);
                 new_state_id += 1;
             }
         }
@@ -49,7 +54,7 @@ impl NBA {
             .initial_states
             .iter()
             .map(|orig_id| {
-                state_mapping
+                new_to_gnba
                     .iter()
                     .find(|(orig_id_map, acc, _)| *orig_id_map == *orig_id && *acc == 0)
                     .unwrap()
@@ -60,7 +65,7 @@ impl NBA {
         // Accepting state: first of the gnba
         let acceptance_condition = AcceptanceCondition {
             id: 0,
-            states: state_mapping
+            states: new_to_gnba
                 .iter()
                 .filter_map(|(orig_id, acc, new_id)| {
                     if gnba.acceptance_conditions[0].states.contains(orig_id) && *acc == 0 {
@@ -72,37 +77,15 @@ impl NBA {
                 .collect(),
         };
 
-        // Create transitions between the new states fromt gnba 1 to gnba 2 etc
-        let mut transitions = Vec::new();
-        for transition in &gnba.transitions {
-            for acc_id in 0..gnba.acceptance_conditions.len() {
-                let from_new_id = state_mapping
-                    .iter()
-                    .find(|(orig_id, acc, _)| *orig_id == transition.from && *acc == acc_id)
-                    .unwrap()
-                    .2;
-                let to_new_id = state_mapping
-                    .iter()
-                    .find(|(orig_id, acc, _)| {
-                        *orig_id == transition.to
-                            && *acc == (acc_id + 1) % gnba.acceptance_conditions.len()
-                    })
-                    .unwrap()
-                    .2;
-                transitions.push(Transition {
-                    from: from_new_id,
-                    to: to_new_id,
-                    label: transition.label.clone(),
-                });
-            }
-        }
 
         NBA {
-            closure: gnba.closure,
+            closure: closure,
             states,
             initial_states,
-            transitions,
             acceptance_condition,
+            new_to_gnba,
+            gnba_to_new,
+            gnba,
         }
     }
 
@@ -115,21 +98,108 @@ impl NBA {
     }
 
     pub fn next(&self, state_id: usize, label: &[bool]) -> Vec<usize> {
-        self.transitions
-            .iter()
-            .filter(|t| t.from == state_id && t.label == label)
-            .map(|t| t.to)
+        let Some(&(orig_state_id, acc_id, _)) = self.new_to_gnba.get(state_id) else {
+            return Vec::new();
+        };
+        let acc_count = self.gnba.acceptance_conditions.len();
+        if acc_count == 0 {
+            return Vec::new();
+        }
+        if self.gnba_state_label(orig_state_id).as_slice() != label {
+            return Vec::new();
+        }
+        let next_acc_id = (acc_id + 1) % acc_count;
+
+        self.gnba
+            .successors(orig_state_id)
+            .into_iter()
+            .filter_map(|to| self.gnba_to_new.get(&(to, next_acc_id)).copied())
             .collect()
     }
 
     pub fn successors(&self, state_id: usize) -> Vec<usize> {
-        self.transitions
+        let Some(&(orig_state_id, acc_id, _)) = self.new_to_gnba.get(state_id) else {
+            return Vec::new();
+        };
+        let acc_count = self.gnba.acceptance_conditions.len();
+        if acc_count == 0 {
+            return Vec::new();
+        }
+        let next_acc_id = (acc_id + 1) % acc_count;
+
+        self.gnba
+            .successors(orig_state_id)
+            .into_iter()
+            .filter_map(|to| self.gnba_to_new.get(&(to, next_acc_id)).copied())
+            .collect()
+    }
+}
+
+impl NBA {
+    fn gnba_state_label(&self, gnba_state_id: usize) -> Vec<bool> {
+        self.gnba.closure.iter().enumerate().filter_map(|(idx, formula)| {
+            match formula {
+                LTL::Var(_)
+                | LTL::True
+                | LTL::False
+                | LTL::Fireable(_)
+                | LTL::LessEqual(_, _)
+                | LTL::GreaterEqual(_, _)
+                | LTL::Greater(_, _)
+                | LTL::Less(_, _) => Some(self.gnba.states[gnba_state_id].formulas[idx]),
+                _ => None,
+            }
+        }).collect()
+    }
+
+    /// closure + state to vector of LTL
+    fn state_to_formulas(&self, state: &State) -> Vec<LTL> {
+        state
+            .formulas
             .iter()
-            .filter(|t| t.from == state_id)
-            .map(|t| t.to)
+            .enumerate()
+            .filter_map(|(idx, &is_true)| {
+                if is_true {
+                    Some(self.closure[idx].clone())
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 
+
+    /// Generates transitions for the NBA based on the states and closure
+    fn generate_transitions(&self) -> Vec<Transition> {
+        let mut transitions = Vec::new();
+        for transition in &self.gnba.all_transitions() {
+            for acc_id in 0..self.gnba.acceptance_conditions.len() {
+                let from_new_id = self.new_to_gnba
+                    .iter()
+                    .find(|(orig_id, acc, _)| *orig_id == transition.from && *acc == acc_id)
+                    .unwrap()
+                    .2;
+                let to_new_id = self.new_to_gnba
+                    .iter()
+                    .find(|(orig_id, acc, _)| {
+                        *orig_id == transition.to
+                            && *acc == (acc_id + 1) % self.gnba.acceptance_conditions.len()
+                    })
+                    .unwrap()
+                    .2;
+                transitions.push(Transition {
+                    from: from_new_id,
+                    to: to_new_id,
+                    label: transition.label.clone(),
+                });
+            }
+        }
+        transitions
+    }
+
+}
+
+impl NBA {
     pub fn pretty_print(&self) {
         println!("Closure:");
         for (idx, formula) in self.closure.iter().enumerate() {
@@ -138,13 +208,13 @@ impl NBA {
 
         println!("States:");
         for state in &self.states {
-            let formulas = state_to_formulas(state, &self.closure);
+            let formulas = self.state_to_formulas(state);
             println!("  State {}: {:?}", state.id, formulas);
         }
 
         println!("Initial states: {:?}", self.initial_states);
         println!("Transitions:");
-        for transition in &self.transitions {
+        for transition in &self.generate_transitions() {
             println!(
                 "  {} --{:?}--> {}",
                 transition.from, transition.label, transition.to
@@ -157,9 +227,8 @@ impl NBA {
             self.acceptance_condition.id, self.acceptance_condition.states
         );
     }
-}
 
-impl NBA {
+
     pub fn to_dot(&self) -> String {
         let atomic_names: Vec<String> = self
             .closure
@@ -193,7 +262,7 @@ impl NBA {
             s.push_str(&format!("  {} [label=\"{}\"];\n", state.id, state.id));
         }
 
-        for t in &self.transitions {
+        for t in &self.generate_transitions() {
             let label_items: Vec<String> = atomic_names
                 .iter()
                 .zip(t.label.iter())
@@ -221,18 +290,3 @@ impl NBA {
     }
 }
 
-/// closure + state to vector of LTL
-fn state_to_formulas(state: &State, closure: &[LTL]) -> Vec<LTL> {
-    state
-        .formulas
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, &is_true)| {
-            if is_true {
-                Some(closure[idx].clone())
-            } else {
-                None
-            }
-        })
-        .collect()
-}
