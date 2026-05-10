@@ -12,8 +12,17 @@ pub fn is_satisfiable(ltl: &LTL) -> (bool, bool) {
 
 pub fn check_emptyness_nba(nba: &NBA) -> bool {
     for initial_state in &nba.initial_states {
-        let mut visited = vec![false; nba.states.len()];
-        if dfs_nba(nba, *initial_state, &mut visited) {
+        let visited = std::collections::HashSet::new();
+        let stack = std::collections::HashSet::new();
+        let stack2 = std::collections::HashSet::new();
+        let mut ctx = NDFSContextNBA {
+            nba,
+            visited,
+            stack,
+            stack2,
+            seed: None,
+        };
+        if dfs1_nba(&mut ctx, *initial_state) {
             return false;
         }
     }
@@ -23,52 +32,123 @@ pub fn check_emptyness_nba(nba: &NBA) -> bool {
 
 pub fn check_emptyness_gnba(gnba: &GNBA) -> bool {
     for initial_state in &gnba.initial_states {
-        let mut visited = vec![false; gnba.states.len()];
-        if dfs_gnba(gnba, *initial_state, &mut visited) {
+        let visited = std::collections::HashSet::new();
+        let stack = std::collections::HashSet::new();
+        let stack2 = std::collections::HashSet::new();
+        let mut ctx = NDFSContextGNBA {
+            gnba,
+            visited,
+            stack,
+            stack2,
+            seed: None,
+        };
+        if dfs1_gnba(&mut ctx, *initial_state) {
             return false;
         }
     }
     true
 }
 
-fn dfs_nba(nba: &NBA, current_state: usize, visited: &mut Vec<bool>) -> bool {
-    if visited[current_state] {
-        return false; // Already visited this state
-    }
-    visited[current_state] = true;
 
-    if nba.acceptance_condition.states.contains(&current_state) {
-        return true;
-    }
 
-    for transition in &nba.transitions {
-        if transition.from == current_state {
-            if dfs_nba(nba, transition.to, visited) {
+struct NDFSContextNBA<'a> {
+    nba: &'a NBA,
+    visited: std::collections::HashSet<(usize, usize)>,
+    stack: std::collections::HashSet<usize>,
+    stack2: std::collections::HashSet<usize>,
+    seed: Option<(usize, usize)>,
+}
+
+fn dfs1_nba(ctx: &mut NDFSContextNBA, state: usize) -> bool {
+    ctx.visited.insert((state, 0));
+    ctx.stack.insert(state);
+
+    for succ in ctx.nba.successors(state) {
+        if !ctx.visited.contains(&(succ, 0)) {
+            if dfs1_nba(ctx, succ) {
                 return true;
             }
         }
     }
-    false
-}
 
-fn dfs_gnba(gnba: &GNBA, current_state: usize, visited: &mut Vec<bool>) -> bool {
-    if visited[current_state] {
-        return false;
-    }
-    visited[current_state] = true;
-
-    for acc_condition in &gnba.acceptance_conditions {
-        if acc_condition.states.contains(&current_state) {
+    if ctx.nba.is_accepting(state) {
+        ctx.seed = Some((state, 1));
+        if dfs2_nba(ctx, state) {
             return true;
         }
     }
 
-    for transition in &gnba.transitions {
-        if transition.from == current_state {
-            if dfs_gnba(gnba, transition.to, visited) {
+    ctx.stack.remove(&state);
+    false
+}
+
+
+fn dfs2_nba(ctx: &mut NDFSContextNBA, state: usize) -> bool {
+    ctx.visited.insert((state, 1));
+    ctx.stack2.insert(state);
+
+    for succ in ctx.nba.successors(state) {
+        if ctx.seed == Some((succ, 1)) {
+            return true;
+        }
+        if !ctx.visited.contains(&(succ, 1)) {
+            if dfs2_nba(ctx, succ) {
                 return true;
             }
         }
     }
+    
+    ctx.stack2.remove(&state);
+    false
+}
+
+struct NDFSContextGNBA<'a> {
+    gnba: &'a GNBA,
+    visited: std::collections::HashSet<(usize, usize)>,
+    stack: std::collections::HashSet<usize>,
+    stack2: std::collections::HashSet<usize>,
+    seed: Option<(usize, usize)>,
+}
+
+fn dfs1_gnba(ctx: &mut NDFSContextGNBA, state: usize) -> bool {
+    ctx.visited.insert((state, 0));
+    ctx.stack.insert(state);
+
+    for succ in ctx.gnba.successors(state) {
+        if !ctx.visited.contains(&(succ, 0)) {
+            if dfs1_gnba(ctx, succ) {
+                return true;
+            }
+        }
+    }
+
+    if ctx.gnba.is_accepting(state) {
+        ctx.seed = Some((state, 1));
+        if dfs2_gnba(ctx, state) {
+            return true;
+        }
+    }
+
+    ctx.stack.remove(&state);
+    false
+}
+
+
+fn dfs2_gnba(ctx: &mut NDFSContextGNBA, state: usize) -> bool {
+    ctx.visited.insert((state, 1));
+    ctx.stack2.insert(state);
+
+    for succ in ctx.gnba.successors(state) {
+        if ctx.seed == Some((succ, 1)) {
+            return true;
+        }
+        if !ctx.visited.contains(&(succ, 1)) {
+            if dfs2_gnba(ctx, succ) {
+                return true;
+            }
+        }
+    }
+    
+    ctx.stack2.remove(&state);
     false
 }

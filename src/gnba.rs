@@ -51,6 +51,17 @@ impl GNBA {
         }
     }
 
+    pub fn successors(&self, state_id: usize) -> Vec<usize> {
+        self.transitions.iter()
+            .filter(|t| t.from == state_id)
+            .map(|t| t.to)
+            .collect()
+    }
+
+    pub fn is_accepting(&self, state_id: usize) -> bool {
+        self.acceptance_conditions.iter().any(|cond| cond.states.contains(&state_id))
+    }
+
     pub fn pretty_print(&self) {
         println!("Closure:");
         for (idx, formula) in self.closure.iter().enumerate() {

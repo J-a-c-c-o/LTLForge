@@ -105,6 +105,13 @@ impl NBA {
             .collect()
     }
 
+    pub fn successors(&self, state_id: usize) -> Vec<usize> {
+        self.transitions.iter()
+            .filter(|t| t.from == state_id)
+            .map(|t| t.to)
+            .collect()
+    }
+
 
     pub fn pretty_print(&self) {
         println!("Closure:");

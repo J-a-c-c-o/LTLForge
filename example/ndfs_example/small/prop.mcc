@@ -12,5 +12,5 @@ A G F (("t1"?))
 end.
 
 Property example_prop_03 "Generally Next t2 or t3 can be fired" is:
-A G X (("t2"? || "t3"?))
+A G (("t2"? || "t3"?))
 end.
