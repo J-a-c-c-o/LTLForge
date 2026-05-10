@@ -78,7 +78,7 @@ impl NBA {
         };
 
         NBA {
-            closure: closure,
+            closure,
             states,
             initial_states,
             acceptance_condition,
