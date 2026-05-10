@@ -1,8 +1,7 @@
-use crate::ltl_parser::LTL;
-use crate::pnf::to_pnf;
 use crate::closure::compute_closure;
 use crate::consistency::is_consistent;
-
+use crate::ltl_parser::LTL;
+use crate::pnf::to_pnf;
 
 pub struct GNBA {
     pub closure: Vec<LTL>,
@@ -52,14 +51,17 @@ impl GNBA {
     }
 
     pub fn successors(&self, state_id: usize) -> Vec<usize> {
-        self.transitions.iter()
+        self.transitions
+            .iter()
             .filter(|t| t.from == state_id)
             .map(|t| t.to)
             .collect()
     }
 
     pub fn is_accepting(&self, state_id: usize) -> bool {
-        self.acceptance_conditions.iter().any(|cond| cond.states.contains(&state_id))
+        self.acceptance_conditions
+            .iter()
+            .any(|cond| cond.states.contains(&state_id))
     }
 
     pub fn pretty_print(&self) {
@@ -77,20 +79,35 @@ impl GNBA {
         println!("Initial states: {:?}", self.initial_states);
         println!("Transitions:");
         for transition in &self.transitions {
-            println!("  {} --{:?}--> {}", transition.from, transition.label, transition.to);
+            println!(
+                "  {} --{:?}--> {}",
+                transition.from, transition.label, transition.to
+            );
         }
 
         println!("Acceptance conditions:");
         for condition in &self.acceptance_conditions {
-            println!("  Condition {}: states {:?}", condition.id, condition.states);
+            println!(
+                "  Condition {}: states {:?}",
+                condition.id, condition.states
+            );
         }
     }
 }
 
 /// closure + state to vector of LTL
 fn state_to_formulas(state: &State, closure: &[LTL]) -> Vec<LTL> {
-    state.formulas.iter().enumerate()
-        .filter_map(|(idx, &is_true)| if is_true { Some(closure[idx].clone()) } else { None })
+    state
+        .formulas
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, &is_true)| {
+            if is_true {
+                Some(closure[idx].clone())
+            } else {
+                None
+            }
+        })
         .collect()
 }
 
@@ -98,14 +115,14 @@ fn state_to_formulas(state: &State, closure: &[LTL]) -> Vec<LTL> {
 fn generate_states(closure: &[LTL]) -> Vec<State> {
     let consistent_truth_assignments = is_consistent(closure);
     let mut states = Vec::new();
-    
+
     for (id, formulas) in consistent_truth_assignments.iter().enumerate() {
         states.push(State {
             id,
             formulas: formulas.clone(),
         });
     }
-    
+
     states
 }
 
@@ -124,7 +141,7 @@ fn find_initial_states(states: &[State]) -> Vec<usize> {
 /// Generate transitions following X, U, R expansion rules
 fn generate_transitions(states: &[State], closure: &[LTL]) -> Vec<Transition> {
     let mut transitions = Vec::new();
-    
+
     for from_state in states {
         // Find all valid successor states
         for to_state in states {
@@ -138,7 +155,7 @@ fn generate_transitions(states: &[State], closure: &[LTL]) -> Vec<Transition> {
             }
         }
     }
-    
+
     transitions
 }
 
@@ -163,7 +180,7 @@ fn is_valid_transition(from_state: &State, to_state: &State, closure: &[LTL]) ->
             LTL::Next(inner) => {
                 if let Some(inner_next) = eval_in_state(to_state, closure, inner.as_ref()) {
                     let x_curr = from_state.formulas[idx];
-                    
+
                     if x_curr != inner_next {
                         return false;
                     }
@@ -171,8 +188,9 @@ fn is_valid_transition(from_state: &State, to_state: &State, closure: &[LTL]) ->
             }
             LTL::Until(left, right) => {
                 let left_curr = eval_in_state(from_state, closure, left.as_ref()).unwrap_or(false);
-                let right_curr = eval_in_state(from_state, closure, right.as_ref()).unwrap_or(false);
-                
+                let right_curr =
+                    eval_in_state(from_state, closure, right.as_ref()).unwrap_or(false);
+
                 let u_curr = from_state.formulas[idx];
                 let u_next = eval_in_state(to_state, closure, formula).unwrap_or(false);
 
@@ -182,8 +200,9 @@ fn is_valid_transition(from_state: &State, to_state: &State, closure: &[LTL]) ->
             }
             LTL::Release(left, right) => {
                 let left_curr = eval_in_state(from_state, closure, left.as_ref()).unwrap_or(false);
-                let right_curr = eval_in_state(from_state, closure, right.as_ref()).unwrap_or(false);
-                
+                let right_curr =
+                    eval_in_state(from_state, closure, right.as_ref()).unwrap_or(false);
+
                 let r_curr = from_state.formulas[idx];
                 let r_next = eval_in_state(to_state, closure, formula).unwrap_or(false);
 
@@ -191,26 +210,28 @@ fn is_valid_transition(from_state: &State, to_state: &State, closure: &[LTL]) ->
                     return false;
                 }
             }
-            _ => {
-
-            }
+            _ => {}
         }
     }
-    
+
     true
 }
 
-
 /// Compute the label of a state (which atomic propositions are true)
 fn compute_label(state: &State, closure: &[LTL]) -> Vec<bool> {
-    closure.iter().enumerate()
-        .filter_map(|(idx, formula)| {
-            match formula {
-                LTL::Var(_) | LTL::True | LTL::False | LTL::Fireable(_) | LTL::LessEqual(_, _) | LTL::GreaterEqual(_, _) | LTL::Greater(_, _) | LTL::Less(_, _) => {
-                    Some(state.formulas[idx])
-                }
-                _ => None,
-            }
+    closure
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, formula)| match formula {
+            LTL::Var(_)
+            | LTL::True
+            | LTL::False
+            | LTL::Fireable(_)
+            | LTL::LessEqual(_, _)
+            | LTL::GreaterEqual(_, _)
+            | LTL::Greater(_, _)
+            | LTL::Less(_, _) => Some(state.formulas[idx]),
+            _ => None,
         })
         .collect()
 }
@@ -219,33 +240,40 @@ fn compute_label(state: &State, closure: &[LTL]) -> Vec<bool> {
 fn generate_acceptance_conditions(states: &[State], closure: &[LTL]) -> Vec<AcceptanceCondition> {
     let mut acceptance_conditions = Vec::new();
     let mut condition_id = 0;
-    
+
     for (idx, formula) in closure.iter().enumerate() {
         if let LTL::Until(_left, right) = formula {
-            let accepting_states: Vec<usize> = states.iter().filter_map(|state| {
-                let until_false = !state.formulas[idx];
-                
-                // Check if right side is true
-                let right_true = match right.as_ref() {
-                    LTL::Not(inner) => {
-                        // For negated formulas not in closure, check inner and negate
-                        closure.iter().position(|f| f == inner.as_ref())
-                            .map_or(false, |i| !state.formulas[i])
+            let accepting_states: Vec<usize> = states
+                .iter()
+                .filter_map(|state| {
+                    let until_false = !state.formulas[idx];
+
+                    // Check if right side is true
+                    let right_true = match right.as_ref() {
+                        LTL::Not(inner) => {
+                            // For negated formulas not in closure, check inner and negate
+                            closure
+                                .iter()
+                                .position(|f| f == inner.as_ref())
+                                .map_or(false, |i| !state.formulas[i])
+                        }
+                        other => {
+                            // For formulas in closure, check directly
+                            closure
+                                .iter()
+                                .position(|f| f == other)
+                                .map_or(false, |i| state.formulas[i])
+                        }
+                    };
+
+                    if until_false || right_true {
+                        Some(state.id)
+                    } else {
+                        None
                     }
-                    other => {
-                        // For formulas in closure, check directly
-                        closure.iter().position(|f| f == other)
-                            .map_or(false, |i| state.formulas[i])
-                    }
-                };
-                
-                if until_false || right_true {
-                    Some(state.id)
-                } else {
-                    None
-                }
-            }).collect();
-            
+                })
+                .collect();
+
             acceptance_conditions.push(AcceptanceCondition {
                 id: condition_id,
                 states: accepting_states,
@@ -253,24 +281,27 @@ fn generate_acceptance_conditions(states: &[State], closure: &[LTL]) -> Vec<Acce
             condition_id += 1;
         }
     }
-    
+
     acceptance_conditions
 }
 
 impl GNBA {
     pub fn to_dot(&self) -> String {
-        let atomic_names: Vec<String> = self.closure.iter().filter_map(|formula| {
-            match formula {
+        let atomic_names: Vec<String> = self
+            .closure
+            .iter()
+            .filter_map(|formula| match formula {
                 LTL::Var(name) => Some(name.clone()),
                 LTL::True => Some("true".to_string()),
                 LTL::False => Some("false".to_string()),
                 LTL::Fireable(name) => Some(format!("\"{}\"?", name)),
-                LTL::LessEqual(_, _) | LTL::GreaterEqual(_, _) | LTL::Greater(_, _) | LTL::Less(_, _) => {
-                    Some(format!("{}", formula))
-                }
+                LTL::LessEqual(_, _)
+                | LTL::GreaterEqual(_, _)
+                | LTL::Greater(_, _)
+                | LTL::Less(_, _) => Some(format!("{}", formula)),
                 _ => None,
-            }
-        }).collect();
+            })
+            .collect();
 
         let mut s = String::new();
         s.push_str("digraph GNBA {\n");
@@ -287,12 +318,21 @@ impl GNBA {
         }
 
         for t in &self.transitions {
-            let label_items: Vec<String> = atomic_names.iter().zip(t.label.iter())
+            let label_items: Vec<String> = atomic_names
+                .iter()
+                .zip(t.label.iter())
                 .filter_map(|(name, &b)| if b { Some(name.clone()) } else { None })
                 .collect();
-            let label_str = if label_items.is_empty() { "".to_string() } else { label_items.join(",") };
+            let label_str = if label_items.is_empty() {
+                "".to_string()
+            } else {
+                label_items.join(",")
+            };
             let escaped = label_str.replace('"', "\\\"");
-            s.push_str(&format!("  {} -> {} [label=\"{}\"];\n", t.from, t.to, escaped));
+            s.push_str(&format!(
+                "  {} -> {} [label=\"{}\"];\n",
+                t.from, t.to, escaped
+            ));
         }
 
         for condition in &self.acceptance_conditions {
@@ -305,7 +345,6 @@ impl GNBA {
         s
     }
 }
-
 
 #[cfg(test)]
 mod tests {

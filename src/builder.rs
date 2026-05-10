@@ -72,11 +72,14 @@ impl PetriNetBuilder {
         };
 
         let mut place_indices: HashMap<String, u32> = HashMap::with_capacity(self.nodes.len());
-        let mut transition_indices: HashMap<String, u32> = HashMap::with_capacity(self.transition.len());
+        let mut transition_indices: HashMap<String, u32> =
+            HashMap::with_capacity(self.transition.len());
 
         for (index, node_builder) in self.nodes.into_iter().enumerate() {
             place_indices.insert(node_builder.id.clone(), index as u32);
-            petri_net.places.push(Place { id: node_builder.id });
+            petri_net.places.push(Place {
+                id: node_builder.id,
+            });
             petri_net.initial_tokens.push(node_builder.token as u8);
         }
 

@@ -29,7 +29,6 @@ pub fn check_emptyness_nba(nba: &NBA) -> bool {
     true
 }
 
-
 pub fn check_emptyness_gnba(gnba: &GNBA) -> bool {
     for initial_state in &gnba.initial_states {
         let visited = std::collections::HashSet::new();
@@ -48,8 +47,6 @@ pub fn check_emptyness_gnba(gnba: &GNBA) -> bool {
     }
     true
 }
-
-
 
 struct NDFSContextNBA<'a> {
     nba: &'a NBA,
@@ -82,7 +79,6 @@ fn dfs1_nba(ctx: &mut NDFSContextNBA, state: usize) -> bool {
     false
 }
 
-
 fn dfs2_nba(ctx: &mut NDFSContextNBA, state: usize) -> bool {
     ctx.visited.insert((state, 1));
     ctx.stack2.insert(state);
@@ -97,7 +93,7 @@ fn dfs2_nba(ctx: &mut NDFSContextNBA, state: usize) -> bool {
             }
         }
     }
-    
+
     ctx.stack2.remove(&state);
     false
 }
@@ -133,7 +129,6 @@ fn dfs1_gnba(ctx: &mut NDFSContextGNBA, state: usize) -> bool {
     false
 }
 
-
 fn dfs2_gnba(ctx: &mut NDFSContextGNBA, state: usize) -> bool {
     ctx.visited.insert((state, 1));
     ctx.stack2.insert(state);
@@ -148,11 +143,10 @@ fn dfs2_gnba(ctx: &mut NDFSContextGNBA, state: usize) -> bool {
             }
         }
     }
-    
+
     ctx.stack2.remove(&state);
     false
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -180,9 +174,16 @@ mod tests {
             let gnba = GNBA::new(&ltl);
             let nba = NBA::new(&ltl);
 
-            assert_eq!(check_emptyness_gnba(&gnba), expected_empty, "GNBA emptiness mismatch for {formula}");
-            assert_eq!(check_emptyness_nba(&nba), expected_empty, "NBA emptiness mismatch for {formula}");
+            assert_eq!(
+                check_emptyness_gnba(&gnba),
+                expected_empty,
+                "GNBA emptiness mismatch for {formula}"
+            );
+            assert_eq!(
+                check_emptyness_nba(&nba),
+                expected_empty,
+                "NBA emptiness mismatch for {formula}"
+            );
         }
     }
-
 }

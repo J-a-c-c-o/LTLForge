@@ -1,5 +1,5 @@
-use std::collections::VecDeque;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 
 use crate::petri_net::{PetriNet, PetriState};
 

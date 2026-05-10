@@ -1,16 +1,17 @@
+use crate::emptyness::check_emptyness_nba;
+use crate::ltl_parser::LTL;
 use crate::nba::NBA;
 use crate::petri_net::{PetriNet, PetriState};
-use crate::ltl_parser::LTL;
 use std::collections::HashSet;
-use crate::emptyness::check_emptyness_nba;
-
 
 pub fn model_check(petri_net: &PetriNet, ltl: &LTL) -> bool {
     let negated_ltl = ltl.negate();
     let nba = NBA::new(&negated_ltl);
     let is_empty = check_emptyness_nba(&nba);
     if is_empty {
-        println!("The language of the NBA is empty, which means the original LTL formula is valid on all traces of the Petri net.");
+        println!(
+            "The language of the NBA is empty, which means the original LTL formula is valid on all traces of the Petri net."
+        );
         return true;
     }
 
@@ -41,7 +42,6 @@ struct NDFSContext<'a> {
     stack2: HashSet<CombinedState>,
 }
 
-
 impl<'a> NDFSContext<'a> {
     fn successors(&self, state: &CombinedState) -> Vec<CombinedState> {
         let mut result = Vec::new();
@@ -59,7 +59,7 @@ impl<'a> NDFSContext<'a> {
                     nba_state: q_next,
                 });
             }
-        }        
+        }
         result
     }
 
@@ -67,7 +67,6 @@ impl<'a> NDFSContext<'a> {
         self.nba.is_accepting(state.nba_state)
     }
 }
-
 
 fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool> {
     fn eval_num(expr: &LTL, petri: &PetriNet, marking: &PetriState) -> Option<i64> {
@@ -103,45 +102,64 @@ fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool>
                 }
             }
             LTL::LessEqual(left, right) => {
-                if let (Some(l), Some(r)) = (eval_num(left, petri, marking), eval_num(right, petri, marking)) {
+                if let (Some(l), Some(r)) = (
+                    eval_num(left, petri, marking),
+                    eval_num(right, petri, marking),
+                ) {
                     Some(l <= r)
-                } else { None }
+                } else {
+                    None
+                }
             }
             LTL::GreaterEqual(left, right) => {
-                if let (Some(l), Some(r)) = (eval_num(left, petri, marking), eval_num(right, petri, marking)) {
+                if let (Some(l), Some(r)) = (
+                    eval_num(left, petri, marking),
+                    eval_num(right, petri, marking),
+                ) {
                     Some(l >= r)
-                } else { None }
+                } else {
+                    None
+                }
             }
             LTL::Greater(left, right) => {
-                if let (Some(l), Some(r)) = (eval_num(left, petri, marking), eval_num(right, petri, marking)) {
+                if let (Some(l), Some(r)) = (
+                    eval_num(left, petri, marking),
+                    eval_num(right, petri, marking),
+                ) {
                     Some(l > r)
-                } else { None }
+                } else {
+                    None
+                }
             }
             LTL::Less(left, right) => {
-                if let (Some(l), Some(r)) = (eval_num(left, petri, marking), eval_num(right, petri, marking)) {
+                if let (Some(l), Some(r)) = (
+                    eval_num(left, petri, marking),
+                    eval_num(right, petri, marking),
+                ) {
                     Some(l < r)
-                } else { None }
+                } else {
+                    None
+                }
             }
             _ => None,
         }
     }
 
-    nba.closure.iter()
-        .filter_map(|formula| {
-            match formula {
-                LTL::Var(_) | LTL::True | LTL::False | LTL::LessEqual(_, _) | LTL::GreaterEqual(_, _) | LTL::Greater(_, _) | LTL::Less(_, _) => {
-                    eval_bool(formula, petri, marking)
-                }
-                LTL::Fireable(_) => {
-                    eval_bool(formula, petri, marking)
-                }
-                _ => None,
-            }
+    nba.closure
+        .iter()
+        .filter_map(|formula| match formula {
+            LTL::Var(_)
+            | LTL::True
+            | LTL::False
+            | LTL::LessEqual(_, _)
+            | LTL::GreaterEqual(_, _)
+            | LTL::Greater(_, _)
+            | LTL::Less(_, _) => eval_bool(formula, petri, marking),
+            LTL::Fireable(_) => eval_bool(formula, petri, marking),
+            _ => None,
         })
         .collect()
 }
-
-
 
 fn ndfs(petri: &PetriNet, nba: &NBA) -> bool {
     let mut ctx = NDFSContext {
@@ -195,11 +213,9 @@ fn dfs1(ctx: &mut NDFSContext, state: CombinedState) -> bool {
     false
 }
 
-
 fn dfs2(ctx: &mut NDFSContext, state: CombinedState) -> bool {
     ctx.visited.insert((state.clone(), 1));
     ctx.stack2.insert(state.clone());
-
 
     for succ in ctx.successors(&state) {
         if ctx.seed == Some((succ.clone(), 1)) {
@@ -211,7 +227,7 @@ fn dfs2(ctx: &mut NDFSContext, state: CombinedState) -> bool {
             }
         }
     }
-    
+
     ctx.stack.remove(&state);
 
     false

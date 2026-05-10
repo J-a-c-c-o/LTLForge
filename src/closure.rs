@@ -11,18 +11,13 @@ pub fn compute_closure(ltl: &LTL) -> Vec<LTL> {
 }
 
 fn compute_closure_helper(ltl: &LTL, closure: &mut Vec<LTL>, visited: &mut HashSet<LTL>) {
-
     let non_negated = remove_negate(ltl);
-    
+
     if !visited.insert(non_negated.clone()) {
         return;
     }
 
-    
-
     push_unique(closure, non_negated.clone());
-
-    
 
     match &non_negated {
         LTL::Not(inner) => compute_closure_helper(inner, closure, visited),
@@ -36,9 +31,11 @@ fn compute_closure_helper(ltl: &LTL, closure: &mut Vec<LTL>, visited: &mut HashS
             compute_closure_helper(left, closure, visited);
             compute_closure_helper(right, closure, visited);
         }
-        LTL::Next(inner) | LTL::Eventually(inner) | LTL::Globally(inner) | LTL::AllPaths(inner) | LTL::SomePath(inner) => {
-            compute_closure_helper(inner, closure, visited)
-        }
+        LTL::Next(inner)
+        | LTL::Eventually(inner)
+        | LTL::Globally(inner)
+        | LTL::AllPaths(inner)
+        | LTL::SomePath(inner) => compute_closure_helper(inner, closure, visited),
         _ => {}
     }
 }

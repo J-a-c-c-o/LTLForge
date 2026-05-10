@@ -69,9 +69,18 @@ impl std::fmt::Display for LTL {
 impl LTL {
     pub fn size(&self) -> usize {
         match self {
-            LTL::True | LTL::False | LTL::Var(_) | LTL::TokenCount(_) | LTL::Fireable(_) | LTL::Number(_) => 1,
+            LTL::True
+            | LTL::False
+            | LTL::Var(_)
+            | LTL::TokenCount(_)
+            | LTL::Fireable(_)
+            | LTL::Number(_) => 1,
             LTL::Not(inner) => 1 + inner.size(),
-            LTL::Next(inner) | LTL::Eventually(inner) | LTL::Globally(inner) | LTL::AllPaths(inner) | LTL::SomePath(inner) => 1 + inner.size(),
+            LTL::Next(inner)
+            | LTL::Eventually(inner)
+            | LTL::Globally(inner)
+            | LTL::AllPaths(inner)
+            | LTL::SomePath(inner) => 1 + inner.size(),
             LTL::And(left, right)
             | LTL::Or(left, right)
             | LTL::Implies(left, right)
@@ -85,7 +94,6 @@ impl LTL {
             | LTL::MightyRelease(left, right) => 1 + left.size() + right.size(),
         }
     }
-
 
     pub fn negate(&self) -> LTL {
         LTL::Not(Box::new(self.clone()))
@@ -109,8 +117,8 @@ fn parse_expr_implies(input: &str) -> IResult<&str, LTL> {
 fn parse_expr_or(input: &str) -> IResult<&str, LTL> {
     let (mut input, mut expr) = parse_expr_and(input)?;
 
-    while let Ok((next_input, rhs)) = preceded(ws(alt((tag("||"), tag("|")))), parse_expr_and)
-        .parse(input)
+    while let Ok((next_input, rhs)) =
+        preceded(ws(alt((tag("||"), tag("|")))), parse_expr_and).parse(input)
     {
         expr = LTL::Or(Box::new(expr), Box::new(rhs));
         input = next_input;
@@ -122,8 +130,8 @@ fn parse_expr_or(input: &str) -> IResult<&str, LTL> {
 fn parse_expr_and(input: &str) -> IResult<&str, LTL> {
     let (mut input, mut expr) = parse_expr_compare(input)?;
 
-    while let Ok((next_input, rhs)) = preceded(ws(alt((tag("&&"), tag("&")))), parse_expr_compare)
-        .parse(input)
+    while let Ok((next_input, rhs)) =
+        preceded(ws(alt((tag("&&"), tag("&")))), parse_expr_compare).parse(input)
     {
         expr = LTL::And(Box::new(expr), Box::new(rhs));
         input = next_input;
@@ -278,8 +286,8 @@ fn parse_unary(input: &str) -> IResult<&str, LTL> {
 fn parse_and(input: &str) -> IResult<&str, LTL> {
     let (mut input, mut expr) = parse_unary(input)?;
 
-    while let Ok((next_input, rhs)) = preceded(ws(alt((tag("&&"), tag("&")))), parse_unary)
-        .parse(input)
+    while let Ok((next_input, rhs)) =
+        preceded(ws(alt((tag("&&"), tag("&")))), parse_unary).parse(input)
     {
         expr = LTL::And(Box::new(expr), Box::new(rhs));
         input = next_input;
@@ -291,8 +299,8 @@ fn parse_and(input: &str) -> IResult<&str, LTL> {
 fn parse_or(input: &str) -> IResult<&str, LTL> {
     let (mut input, mut expr) = parse_and(input)?;
 
-    while let Ok((next_input, rhs)) = preceded(ws(alt((tag("||"), tag("|")))), parse_and)
-        .parse(input)
+    while let Ok((next_input, rhs)) =
+        preceded(ws(alt((tag("||"), tag("|")))), parse_and).parse(input)
     {
         expr = LTL::Or(Box::new(expr), Box::new(rhs));
         input = next_input;
@@ -493,14 +501,14 @@ mod tests {
             Box::new(fire_speed),
         );
 
-        let expected = LTL::Next(Box::new(LTL::Globally(Box::new(
-            LTL::Next(Box::new(LTL::Until(
+        let expected = LTL::Next(Box::new(LTL::Globally(Box::new(LTL::Next(Box::new(
+            LTL::Until(
                 Box::new(fire_t22),
-                Box::new(LTL::Next(Box::new(LTL::Next(Box::new(LTL::Not(Box::new(
-                    nested_until,
-                ))))))),
-            ))),
-        ))));
+                Box::new(LTL::Next(Box::new(LTL::Next(Box::new(LTL::Not(
+                    Box::new(nested_until),
+                )))))),
+            ),
+        ))))));
 
         assert_eq!(parsed, expected);
     }

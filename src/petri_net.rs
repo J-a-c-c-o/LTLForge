@@ -48,25 +48,32 @@ impl PetriNet {
                     next_tokens[index] = next_tokens[index].saturating_add(1);
                 }
 
-                next_states.push(PetriState { tokens: next_tokens });
+                next_states.push(PetriState {
+                    tokens: next_tokens,
+                });
             }
         }
 
         next_states
     }
 
-
     pub fn to_pnml(&self) -> String {
         let mut pnml = String::new();
-        pnml.push_str(&format!("<pnml><net id=\"{}\" type=\"http://www.pnml.org/version-2009/grammar/ptnet\">\n", self.id));
+        pnml.push_str(&format!(
+            "<pnml><net id=\"{}\" type=\"http://www.pnml.org/version-2009/grammar/ptnet\">\n",
+            self.id
+        ));
         pnml.push_str(&format!("<name><text>{}</text></name>\n", self.name));
         pnml.push_str("<page id=\"page1\">\n");
-        
+
         for place in &self.places {
             pnml.push_str(&format!("<place id=\"{}\">\n", place.id));
             if let Some(index) = self.places.iter().position(|p| p.id == place.id) {
                 let initial_tokens = self.initial_tokens.get(index).copied().unwrap_or(0);
-                pnml.push_str(&format!("<initialMarking><text>{}</text></initialMarking>\n", initial_tokens));
+                pnml.push_str(&format!(
+                    "<initialMarking><text>{}</text></initialMarking>\n",
+                    initial_tokens
+                ));
             }
             pnml.push_str("</place>\n");
         }
@@ -78,16 +85,26 @@ impl PetriNet {
         for transition in &self.transitions {
             for &incoming_index in &transition.incoming {
                 if let Some(place) = self.places.get(incoming_index as usize) {
-                    pnml.push_str(&format!("<arc id=\"{}\" source=\"{}\" target=\"{}\" />\n", format!("arc_{}_{}", place.id, transition.id), place.id, transition.id));
+                    pnml.push_str(&format!(
+                        "<arc id=\"{}\" source=\"{}\" target=\"{}\" />\n",
+                        format!("arc_{}_{}", place.id, transition.id),
+                        place.id,
+                        transition.id
+                    ));
                 }
             }
             for &outgoing_index in &transition.outgoing {
                 if let Some(place) = self.places.get(outgoing_index as usize) {
-                    pnml.push_str(&format!("<arc id=\"{}\" source=\"{}\" target=\"{}\" />\n", format!("arc_{}_{}", transition.id, place.id), transition.id, place.id));
+                    pnml.push_str(&format!(
+                        "<arc id=\"{}\" source=\"{}\" target=\"{}\" />\n",
+                        format!("arc_{}_{}", transition.id, place.id),
+                        transition.id,
+                        place.id
+                    ));
                 }
             }
         }
-        
+
         pnml.push_str("</page>");
         pnml.push_str("</net></pnml>");
         pnml
@@ -106,7 +123,6 @@ impl Transition {
     }
 }
 
-
 // test
 #[cfg(test)]
 mod tests {
@@ -117,8 +133,19 @@ mod tests {
         let petri_net = PetriNet {
             id: "test_net".to_string(),
             name: "Test Net".to_string(),
-            places: vec![Place { id: "p1".to_string() }, Place { id: "p2".to_string() }],
-            transitions: vec![Transition { id: "t1".to_string(), incoming: vec![0], outgoing: vec![1] }],
+            places: vec![
+                Place {
+                    id: "p1".to_string(),
+                },
+                Place {
+                    id: "p2".to_string(),
+                },
+            ],
+            transitions: vec![Transition {
+                id: "t1".to_string(),
+                incoming: vec![0],
+                outgoing: vec![1],
+            }],
             initial_tokens: vec![1, 0],
         };
         let initial_state = petri_net.initial_state();
@@ -127,5 +154,4 @@ mod tests {
         assert_eq!(next_states.len(), 1);
         assert_eq!(next_states[0].tokens, vec![0, 1]);
     }
-
 }

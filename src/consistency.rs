@@ -5,11 +5,9 @@ pub fn is_consistent(closure: &[LTL]) -> Vec<Vec<bool>> {
     let mut hash_set: HashSet<Vec<bool>> = HashSet::new();
     consistent_sets(closure, &[], &mut hash_set);
     let consistent_sets: Vec<Vec<bool>> = hash_set.into_iter().collect();
-    
+
     consistent_sets
 }
-
-
 
 fn consistent_sets(closure: &[LTL], partial_truth: &[bool], hash_set: &mut HashSet<Vec<bool>>) {
     if partial_truth.len() == closure.len() {
@@ -43,10 +41,14 @@ fn is_consistent_with_partial(formula: &LTL, partial_truth: &[bool], closure: &[
 
     match formula {
         LTL::True => {
-            if !value { return false; }
+            if !value {
+                return false;
+            }
         }
         LTL::False => {
-            if value { return false; }
+            if value {
+                return false;
+            }
         }
         LTL::And(left, right) => {
             let left_assigned = get_assigned_truth(left.as_ref(), partial_truth, closure);
@@ -96,7 +98,7 @@ fn is_consistent_with_partial(formula: &LTL, partial_truth: &[bool], closure: &[
         LTL::Until(left, right) => {
             let left_assigned = get_assigned_truth(left.as_ref(), partial_truth, closure);
             let right_assigned = get_assigned_truth(right.as_ref(), partial_truth, closure);
-            
+
             if value {
                 if matches!(left_assigned, Some(false)) && matches!(right_assigned, Some(false)) {
                     return false;
@@ -110,7 +112,7 @@ fn is_consistent_with_partial(formula: &LTL, partial_truth: &[bool], closure: &[
         LTL::Release(left, right) => {
             let left_assigned = get_assigned_truth(left.as_ref(), partial_truth, closure);
             let right_assigned = get_assigned_truth(right.as_ref(), partial_truth, closure);
-            
+
             if value {
                 if matches!(right_assigned, Some(false)) {
                     return false;

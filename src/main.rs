@@ -1,22 +1,21 @@
 mod builder;
-mod petri_net;
-mod explorer;
-mod philosophers;
-mod ltl_parser;
-mod pnf;
 mod closure;
 mod consistency;
-mod gnba;
-mod nba;
 mod emptyness;
+mod explorer;
+mod gnba;
+mod ltl_parser;
 mod model_check;
+mod nba;
+mod petri_net;
+mod philosophers;
+mod pnf;
 
 use builder::PetriNetBuilder;
 use clap::{Parser, Subcommand};
 use std::process::Command;
 
-use crate::philosophers::{PhilosopherConfiguration};
-
+use crate::philosophers::PhilosopherConfiguration;
 
 /// LTL Model Checking Toolbox
 #[derive(Parser)]
@@ -27,14 +26,10 @@ struct Cli {
     command: Commands,
 }
 
-
-
 #[derive(Subcommand)]
 enum Commands {
     /// Compute reachable markings and deadlocks
-    Reachability {
-        pnml_file: String,
-    },
+    Reachability { pnml_file: String },
     /// Check LTL specification on Petri net
     Check {
         /// PNML file
@@ -113,32 +108,41 @@ enum Commands {
         /// Mode for the dining philosophers problem (0: philosophers pickup first the left fork, 1: philosophers pickup either fork first 2: one philosopher picks up left fork first, the other right fork first)
         mode: usize,
 
-        // Output PNML file        
+        // Output PNML file
         output_file: String,
     },
 }
-
-
 
 fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Philosophers { philosophers, mode, generic } => {
-            println!("[Philosophers] Number of philosophers: {}, Mode: {}", philosophers, mode);
+        Commands::Philosophers {
+            philosophers,
+            mode,
+            generic,
+        } => {
+            println!(
+                "[Philosophers] Number of philosophers: {}, Mode: {}",
+                philosophers, mode
+            );
             let config = config_generator(mode, philosophers);
-            let (states, deadlocks) =match generic {
+            let (states, deadlocks) = match generic {
                 true => {
-                    let petri_net = philosophers::build_dining_philosophers(philosophers, config.clone());
+                    let petri_net =
+                        philosophers::build_dining_philosophers(philosophers, config.clone());
                     let stats = explorer::get_reachability_stats(&petri_net);
                     (stats.reachable_count, stats.deadlock_count)
                 }
                 false => {
-                    let (states, deadlocks) = philosophers::compute_reachable_states_and_deadlocks(philosophers, config.clone());
+                    let (states, deadlocks) = philosophers::compute_reachable_states_and_deadlocks(
+                        philosophers,
+                        config.clone(),
+                    );
                     (states.len(), deadlocks.len())
                 }
             };
-            
+
             println!("Reachable states: {}", states);
             println!("Deadlocks: {}", deadlocks);
         }
@@ -151,7 +155,10 @@ fn main() {
             println!("Reachable states: {}", stats.reachable_count);
             println!("Deadlocks: {}", stats.deadlock_count);
         }
-        Commands::Check { pnml_file, ltl_file } => {
+        Commands::Check {
+            pnml_file,
+            ltl_file,
+        } => {
             println!("[Check] PNML file: {}, LTL file: {}", pnml_file, ltl_file);
             let petri_nets = PetriNetBuilder::build_from_file(&pnml_file);
             if petri_nets.is_empty() {
@@ -163,7 +170,10 @@ fn main() {
             let result = ltl_parser::parse_mcc_file(&ltl_file);
             let formulas = match result {
                 Ok(f) => f,
-                Err(e) => { eprintln!("Error parsing LTL file: {}", e); return; }
+                Err(e) => {
+                    eprintln!("Error parsing LTL file: {}", e);
+                    return;
+                }
             };
 
             for (name, formula) in formulas {
@@ -193,10 +203,15 @@ fn main() {
                 let pnf_formula = pnf::to_pnf(&formula);
                 println!("PNF formula: {}", pnf_formula);
                 println!();
-                
             }
         }
-        Commands::Gnba { ltl_file, dot, png, view, viewer } => {
+        Commands::Gnba {
+            ltl_file,
+            dot,
+            png,
+            view,
+            viewer,
+        } => {
             println!("[GNBA] LTL file: {}", ltl_file);
             let result = ltl_parser::parse_mcc_file(&ltl_file);
             let formulas = match result {
@@ -233,8 +248,7 @@ fn main() {
                                         open::with(&output_png, viewer)
                                             .expect("Failed to open PNG with custom viewer");
                                     } else {
-                                        open::that(&output_png)
-                                            .expect("Failed to open PNG file");
+                                        open::that(&output_png).expect("Failed to open PNG file");
                                     }
                                 }
                             }
@@ -252,7 +266,13 @@ fn main() {
                 println!();
             }
         }
-        Commands::Nba { ltl_file, dot, png, view, viewer } => {
+        Commands::Nba {
+            ltl_file,
+            dot,
+            png,
+            view,
+            viewer,
+        } => {
             println!("[NBA] LTL file: {}", ltl_file);
             let result = ltl_parser::parse_mcc_file(&ltl_file);
             let formulas = match result {
@@ -289,8 +309,7 @@ fn main() {
                                         open::with(&output_png, viewer)
                                             .expect("Failed to open PNG with custom viewer");
                                     } else {
-                                        open::that(&output_png)
-                                            .expect("Failed to open PNG file");
+                                        open::that(&output_png).expect("Failed to open PNG file");
                                     }
                                 }
                             }
@@ -327,13 +346,22 @@ fn main() {
                 println!();
             }
         }
-        Commands::Convert { philosophers, output_file, mode } => {
-            println!("[Convert] Philosophers: {}, Output file: {}", philosophers, output_file);
-            let petri_net = philosophers::build_dining_philosophers(philosophers, config_generator(mode, philosophers));
+        Commands::Convert {
+            philosophers,
+            output_file,
+            mode,
+        } => {
+            println!(
+                "[Convert] Philosophers: {}, Output file: {}",
+                philosophers, output_file
+            );
+            let petri_net = philosophers::build_dining_philosophers(
+                philosophers,
+                config_generator(mode, philosophers),
+            );
             let pnml_content = petri_net.to_pnml();
             std::fs::write(output_file, pnml_content).expect("Unable to write file");
         }
-
     }
 }
 
@@ -344,20 +372,32 @@ fn is_command_available(command: &str) -> bool {
         .is_ok()
 }
 
-
-
 fn config_generator(mode: usize, n: usize) -> Vec<PhilosopherConfiguration> {
     let mut config = Vec::new();
 
     for i in 0..n {
         let philosopher_config = match mode {
-            0 => PhilosopherConfiguration { allowed_left: true, allowed_right: false },
-            1 => PhilosopherConfiguration { allowed_left: true, allowed_right: true },
-            2 => if i == 0 {
-                PhilosopherConfiguration { allowed_left: true, allowed_right: false }
-            } else {
-                PhilosopherConfiguration { allowed_left: false, allowed_right: true }
+            0 => PhilosopherConfiguration {
+                allowed_left: true,
+                allowed_right: false,
             },
+            1 => PhilosopherConfiguration {
+                allowed_left: true,
+                allowed_right: true,
+            },
+            2 => {
+                if i == 0 {
+                    PhilosopherConfiguration {
+                        allowed_left: true,
+                        allowed_right: false,
+                    }
+                } else {
+                    PhilosopherConfiguration {
+                        allowed_left: false,
+                        allowed_right: true,
+                    }
+                }
+            }
             _ => panic!("Invalid mode"),
         };
         config.push(philosopher_config);
@@ -365,5 +405,3 @@ fn config_generator(mode: usize, n: usize) -> Vec<PhilosopherConfiguration> {
 
     config
 }
-
-

@@ -81,7 +81,11 @@ fn push_pnf_inwards(expr: &mut LTL) {
             push_pnf_inwards(left);
             push_pnf_inwards(right);
         }
-        LTL::Next(inner) | LTL::Globally(inner) | LTL::Eventually(inner) | LTL::AllPaths(inner) | LTL::SomePath(inner) => {
+        LTL::Next(inner)
+        | LTL::Globally(inner)
+        | LTL::Eventually(inner)
+        | LTL::AllPaths(inner)
+        | LTL::SomePath(inner) => {
             push_pnf_inwards(inner);
         }
         _ => {}
