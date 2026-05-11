@@ -122,30 +122,65 @@ fn main() {
                 }
             };
 
-            println!("{}: {}", "Reachable states".bold(), states.to_string().green());
-            println!("{}: {}", "Deadlocks".bold(), if deadlocks > 0 { deadlocks.to_string().red() } else { "0".green() });
+            println!(
+                "{}: {}",
+                "Reachable states".bold(),
+                states.to_string().green()
+            );
+            println!(
+                "{}: {}",
+                "Deadlocks".bold(),
+                if deadlocks > 0 {
+                    deadlocks.to_string().red()
+                } else {
+                    "0".green()
+                }
+            );
         }
 
         Commands::Reachability { pnml_file } => {
-            println!("{} PNML file: {}", "[Reachability]".bright_cyan().bold(), pnml_file.underline());
+            println!(
+                "{} PNML file: {}",
+                "[Reachability]".bright_cyan().bold(),
+                pnml_file.underline()
+            );
 
             let petri_net = &PetriNetBuilder::build_from_file(&pnml_file)[0];
             let stats = explorer::get_reachability_stats(petri_net);
-            
-            println!("{}: {}", "Reachable states".bold(), stats.reachable_count.to_string().green());
-            println!("{}: {}", "Deadlocks".bold(), if stats.deadlock_count > 0 { stats.deadlock_count.to_string().red() } else { "0".green() });
+
+            println!(
+                "{}: {}",
+                "Reachable states".bold(),
+                stats.reachable_count.to_string().green()
+            );
+            println!(
+                "{}: {}",
+                "Deadlocks".bold(),
+                if stats.deadlock_count > 0 {
+                    stats.deadlock_count.to_string().red()
+                } else {
+                    "0".green()
+                }
+            );
         }
 
-        Commands::Check { pnml_file, ltl_file } => {
+        Commands::Check {
+            pnml_file,
+            ltl_file,
+        } => {
             println!(
-                "{} PNML: {}, LTL: {}", 
-                "[Check]".bright_cyan().bold(), 
-                pnml_file.underline(), 
+                "{} PNML: {}, LTL: {}",
+                "[Check]".bright_cyan().bold(),
+                pnml_file.underline(),
                 ltl_file.underline()
             );
             let petri_nets = PetriNetBuilder::build_from_file(&pnml_file);
             if petri_nets.is_empty() {
-                eprintln!("{} No Petri nets found in file: {}", "Error:".red().bold(), pnml_file);
+                eprintln!(
+                    "{} No Petri nets found in file: {}",
+                    "Error:".red().bold(),
+                    pnml_file
+                );
                 return;
             }
             let petri_net = &petri_nets[0];
@@ -153,11 +188,20 @@ fn main() {
             match ltl_parser::parse_mcc_file(&ltl_file) {
                 Ok(formulas) => {
                     for (name, formula) in formulas {
-                        println!("{} \nChecking: {}", format!("[{}]", name).magenta().bold(), formula.to_string().italic());
+                        println!(
+                            "{} \nChecking: {}",
+                            format!("[{}]", name).magenta().bold(),
+                            formula.to_string().italic()
+                        );
                         if model_check::model_check(petri_net, &formula) {
                             println!("{}", "Result: Property holds ✔".green().bold());
                         } else {
-                            println!("{}", "Result: Property is violated ✘ (counterexample exists)".red().bold());
+                            println!(
+                                "{}",
+                                "Result: Property is violated ✘ (counterexample exists)"
+                                    .red()
+                                    .bold()
+                            );
                         }
                         println!();
                     }
@@ -167,7 +211,11 @@ fn main() {
         }
 
         Commands::Pnf { ltl_file } => {
-            println!("{} LTL file: {}", "[PNF]".bright_cyan().bold(), ltl_file.underline());
+            println!(
+                "{} LTL file: {}",
+                "[PNF]".bright_cyan().bold(),
+                ltl_file.underline()
+            );
             match ltl_parser::parse_mcc_file(&ltl_file) {
                 Ok(formulas) => {
                     for (name, formula) in formulas {
@@ -182,26 +230,74 @@ fn main() {
             }
         }
 
-        Commands::Gnba { ltl_file, dot, png, view, viewer } => {
-            println!("{} LTL file: {}", "[GNBA]".bright_cyan().bold(), ltl_file.underline());
-            process_automaton("GNBA", ltl_file, dot, png, view, viewer, |f| gnba::GNBA::new(f).to_dot(), |f| gnba::GNBA::new(f).pretty_print());
+        Commands::Gnba {
+            ltl_file,
+            dot,
+            png,
+            view,
+            viewer,
+        } => {
+            println!(
+                "{} LTL file: {}",
+                "[GNBA]".bright_cyan().bold(),
+                ltl_file.underline()
+            );
+            process_automaton(
+                "GNBA",
+                ltl_file,
+                dot,
+                png,
+                view,
+                viewer,
+                |f| gnba::GNBA::new(f).to_dot(),
+                |f| gnba::GNBA::new(f).pretty_print(),
+            );
         }
 
-        Commands::Nba { ltl_file, dot, png, view, viewer } => {
-            println!("{} LTL file: {}", "[NBA]".bright_cyan().bold(), ltl_file.underline());
-            process_automaton("NBA", ltl_file, dot, png, view, viewer, |f| nba::NBA::new(f).to_dot(), |f| nba::NBA::new(f).pretty_print());
+        Commands::Nba {
+            ltl_file,
+            dot,
+            png,
+            view,
+            viewer,
+        } => {
+            println!(
+                "{} LTL file: {}",
+                "[NBA]".bright_cyan().bold(),
+                ltl_file.underline()
+            );
+            process_automaton(
+                "NBA",
+                ltl_file,
+                dot,
+                png,
+                view,
+                viewer,
+                |f| nba::NBA::new(f).to_dot(),
+                |f| nba::NBA::new(f).pretty_print(),
+            );
         }
 
         Commands::Sat { ltl_file } => {
-            println!("{} LTL file: {}", "[SAT]".bright_cyan().bold(), ltl_file.underline());
+            println!(
+                "{} LTL file: {}",
+                "[SAT]".bright_cyan().bold(),
+                ltl_file.underline()
+            );
             match ltl_parser::parse_mcc_file(&ltl_file) {
                 Ok(formulas) => {
                     for (name, formula) in formulas {
                         println!("{}", format!("[{}]", name).magenta().bold());
                         println!("  {} {}", "Formula:".blue(), formula);
                         let (nba_sat, gnba_sat) = emptyness::is_satisfiable(&formula);
-                        
-                        let sat_str = |val: bool| if val { "Satisfiable".green().bold() } else { "Unsatisfiable".red().bold() };
+
+                        let sat_str = |val: bool| {
+                            if val {
+                                "Satisfiable".green().bold()
+                            } else {
+                                "Unsatisfiable".red().bold()
+                            }
+                        };
                         println!("  NBA:  {}", sat_str(nba_sat));
                         println!("  GNBA: {}", sat_str(gnba_sat));
                         println!();
@@ -211,7 +307,11 @@ fn main() {
             }
         }
 
-        Commands::Convert { philosophers, output_file, mode } => {
+        Commands::Convert {
+            philosophers,
+            output_file,
+            mode,
+        } => {
             println!(
                 "{} Philosophers: {}, Output: {}",
                 "[Convert]".bright_cyan().bold(),
@@ -258,11 +358,17 @@ fn process_automaton<FDot, FPrint>(
 
                     if is_command_available("dot") && (png || view || viewer.is_some()) {
                         let output_png = format!("output/{}_{}.png", name, label.to_lowercase());
-                        let status = Command::new("dot").args(["-Tpng", &filename, "-o", &output_png]).status();
+                        let status = Command::new("dot")
+                            .args(["-Tpng", &filename, "-o", &output_png])
+                            .status();
 
                         if let Ok(s) = status {
                             if s.success() {
-                                println!("  {} {}", "Generated PNG:".green(), output_png.underline());
+                                println!(
+                                    "  {} {}",
+                                    "Generated PNG:".green(),
+                                    output_png.underline()
+                                );
                                 if view || viewer.is_some() {
                                     if let Some(v) = &viewer {
                                         let _ = open::with(&output_png, v);
@@ -294,8 +400,14 @@ fn config_generator(mode: usize, n: usize) -> Vec<PhilosopherConfiguration> {
     let mut config = Vec::new();
     for i in 0..n {
         let philosopher_config = match mode {
-            0 => PhilosopherConfiguration { allowed_left: true, allowed_right: false },
-            1 => PhilosopherConfiguration { allowed_left: true, allowed_right: true },
+            0 => PhilosopherConfiguration {
+                allowed_left: true,
+                allowed_right: false,
+            },
+            1 => PhilosopherConfiguration {
+                allowed_left: true,
+                allowed_right: true,
+            },
             2 => PhilosopherConfiguration {
                 allowed_left: i == 0,
                 allowed_right: i != 0,
