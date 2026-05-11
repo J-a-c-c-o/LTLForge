@@ -2,12 +2,15 @@ use crate::closure::compute_closure;
 use crate::consistency::is_consistent;
 use crate::ltl_parser::LTL;
 use crate::pnf::to_pnf;
+use std::cell::RefCell;
 
 pub struct GNBA {
     pub closure: Vec<LTL>,
     pub states: Vec<State>,
     pub initial_states: Vec<usize>,
     pub acceptance_conditions: Vec<AcceptanceCondition>,
+    labels_cache: RefCell<Vec<Option<Vec<bool>>>>,
+    successors_cache: RefCell<Vec<Option<Vec<usize>>>>,
 }
 
 pub struct State {
@@ -32,6 +35,7 @@ impl GNBA {
         let closure = compute_closure(&pnf);
         let states = generate_states(&closure);
         let initial_states = find_initial_states(&states);
+        let state_count = states.len();
         let mut acceptance_conditions = generate_acceptance_conditions(&states, &closure);
         if acceptance_conditions.is_empty() {
             acceptance_conditions.push(AcceptanceCondition {
@@ -44,34 +48,25 @@ impl GNBA {
             states,
             initial_states,
             acceptance_conditions,
+            labels_cache: RefCell::new(vec![None; state_count]),
+            successors_cache: RefCell::new(vec![None; state_count]),
         }
     }
 
     pub fn successors(&self, state_id: usize) -> Vec<usize> {
-        let mut result = Vec::new();
-        let from_state = &self.states[state_id];
-
-        for to_state in &self.states {
-            if is_valid_transition(from_state, to_state, &self.closure) {
-                result.push(to_state.id);
-            }
-        }
-
-        result
+        self.cached_successors(state_id)
     }
 
     pub fn all_transitions(&self) -> Vec<Transition> {
         let mut transitions = Vec::new();
-        for from_state in &self.states {
-            for to_state in &self.states {
-                if is_valid_transition(from_state, to_state, &self.closure) {
-                    let label = compute_label(from_state, &self.closure);
-                    transitions.push(Transition {
-                        from: from_state.id,
-                        to: to_state.id,
-                        label,
-                    });
-                }
+        for from_idx in 0..self.states.len() {
+            let label = self.label(from_idx);
+            for to in self.successors(from_idx) {
+                transitions.push(Transition {
+                    from: from_idx,
+                    to,
+                    label: label.clone(),
+                });
             }
         }
         transitions
@@ -81,6 +76,42 @@ impl GNBA {
         self.acceptance_conditions
             .iter()
             .any(|cond| cond.states.contains(&state_id))
+    }
+
+    pub fn label(&self, state_id: usize) -> Vec<bool> {
+        if let Some(label) = self
+            .labels_cache
+            .borrow()
+            .get(state_id)
+            .and_then(|entry| entry.clone())
+        {
+            return label;
+        }
+
+        let label = compute_label(&self.states[state_id], &self.closure);
+        self.labels_cache.borrow_mut()[state_id] = Some(label.clone());
+        label
+    }
+
+    fn cached_successors(&self, state_id: usize) -> Vec<usize> {
+        if let Some(successors) = self
+            .successors_cache
+            .borrow()
+            .get(state_id)
+            .and_then(|entry| entry.clone())
+        {
+            return successors;
+        }
+
+        let from_state = &self.states[state_id];
+        let mut successors = Vec::new();
+        for to_state in &self.states {
+            if is_valid_transition(from_state, to_state, &self.closure) {
+                successors.push(to_state.id);
+            }
+        }
+        self.successors_cache.borrow_mut()[state_id] = Some(successors.clone());
+        successors
     }
 }
 
@@ -99,7 +130,7 @@ impl GNBA {
 
         println!("Initial states: {:?}", self.initial_states);
         println!("Transitions:");
-        for transition in &generate_transitions(&self.states, &self.closure) {
+        for transition in &self.all_transitions() {
             println!(
                 "  {} --{:?}--> {}",
                 transition.from, transition.label, transition.to
@@ -173,7 +204,7 @@ impl GNBA {
             s.push_str(&format!("  start -> {};\n", init));
         }
 
-        for t in &generate_transitions(&self.states, &self.closure) {
+        for t in &self.all_transitions() {
             let label_items: Vec<String> = atomic_names
                 .iter()
                 .zip(t.label.iter())
@@ -243,27 +274,6 @@ fn find_initial_states(states: &[State]) -> Vec<usize> {
         }
     }
     initial_states
-}
-
-/// Generate transitions following X, U, R expansion rules
-fn generate_transitions(states: &[State], closure: &[LTL]) -> Vec<Transition> {
-    let mut transitions = Vec::new();
-
-    for from_state in states {
-        // Find all valid successor states
-        for to_state in states {
-            if is_valid_transition(from_state, to_state, closure) {
-                let label = compute_label(from_state, closure);
-                transitions.push(Transition {
-                    from: from_state.id,
-                    to: to_state.id,
-                    label,
-                });
-            }
-        }
-    }
-
-    transitions
 }
 
 fn eval_in_state(state: &State, closure: &[LTL], formula: &LTL) -> Option<bool> {

@@ -1,5 +1,6 @@
 use crate::gnba::GNBA;
 use crate::ltl_parser::LTL;
+use std::cell::RefCell;
 
 pub struct NBA {
     pub closure: Vec<LTL>,
@@ -9,6 +10,7 @@ pub struct NBA {
     new_to_gnba: Vec<(usize, usize, usize)>,
     gnba_to_new: std::collections::HashMap<(usize, usize), usize>,
     gnba: GNBA,
+    successors_cache: RefCell<Vec<Option<Vec<usize>>>>,
 }
 
 pub struct State {
@@ -62,6 +64,8 @@ impl NBA {
             })
             .collect();
 
+        let state_count = states.len();
+
         // Accepting state: first of the gnba
         let acceptance_condition = AcceptanceCondition {
             id: 0,
@@ -85,6 +89,7 @@ impl NBA {
             new_to_gnba,
             gnba_to_new,
             gnba,
+            successors_cache: RefCell::new(vec![None; state_count]),
         }
     }
 
@@ -97,61 +102,24 @@ impl NBA {
     }
 
     pub fn next(&self, state_id: usize, label: &[bool]) -> Vec<usize> {
-        let Some(&(orig_state_id, acc_id, _)) = self.new_to_gnba.get(state_id) else {
+        let Some(&(orig_state_id, _acc_id, _)) = self.new_to_gnba.get(state_id) else {
             return Vec::new();
         };
-        let acc_count = self.gnba.acceptance_conditions.len();
-        if acc_count == 0 {
-            return Vec::new();
-        }
         if self.gnba_state_label(orig_state_id).as_slice() != label {
             return Vec::new();
         }
-        let next_acc_id = (acc_id + 1) % acc_count;
 
-        self.gnba
-            .successors(orig_state_id)
-            .into_iter()
-            .filter_map(|to| self.gnba_to_new.get(&(to, next_acc_id)).copied())
-            .collect()
+        self.cached_successors(state_id)
     }
 
     pub fn successors(&self, state_id: usize) -> Vec<usize> {
-        let Some(&(orig_state_id, acc_id, _)) = self.new_to_gnba.get(state_id) else {
-            return Vec::new();
-        };
-        let acc_count = self.gnba.acceptance_conditions.len();
-        if acc_count == 0 {
-            return Vec::new();
-        }
-        let next_acc_id = (acc_id + 1) % acc_count;
-
-        self.gnba
-            .successors(orig_state_id)
-            .into_iter()
-            .filter_map(|to| self.gnba_to_new.get(&(to, next_acc_id)).copied())
-            .collect()
+        self.cached_successors(state_id)
     }
 }
 
 impl NBA {
     fn gnba_state_label(&self, gnba_state_id: usize) -> Vec<bool> {
-        self.gnba
-            .closure
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, formula)| match formula {
-                LTL::Var(_)
-                | LTL::True
-                | LTL::False
-                | LTL::Fireable(_)
-                | LTL::LessEqual(_, _)
-                | LTL::GreaterEqual(_, _)
-                | LTL::Greater(_, _)
-                | LTL::Less(_, _) => Some(self.gnba.states[gnba_state_id].formulas[idx]),
-                _ => None,
-            })
-            .collect()
+        self.gnba.label(gnba_state_id)
     }
 
     /// closure + state to vector of LTL
@@ -173,31 +141,52 @@ impl NBA {
     /// Generates transitions for the NBA based on the states and closure
     fn generate_transitions(&self) -> Vec<Transition> {
         let mut transitions = Vec::new();
-        for transition in &self.gnba.all_transitions() {
-            for acc_id in 0..self.gnba.acceptance_conditions.len() {
-                let from_new_id = self
-                    .new_to_gnba
-                    .iter()
-                    .find(|(orig_id, acc, _)| *orig_id == transition.from && *acc == acc_id)
-                    .unwrap()
-                    .2;
-                let to_new_id = self
-                    .new_to_gnba
-                    .iter()
-                    .find(|(orig_id, acc, _)| {
-                        *orig_id == transition.to
-                            && *acc == (acc_id + 1) % self.gnba.acceptance_conditions.len()
-                    })
-                    .unwrap()
-                    .2;
+        // Build transitions from cached NBA successors and GNBA labels
+        for from_new_id in 0..self.states.len() {
+            let (orig_state_id, _acc_id, _new_id) = self.new_to_gnba[from_new_id];
+            let label = self.gnba.label(orig_state_id);
+            for to_new in self.cached_successors(from_new_id) {
                 transitions.push(Transition {
                     from: from_new_id,
-                    to: to_new_id,
-                    label: transition.label.clone(),
+                    to: to_new,
+                    label: label.clone(),
                 });
             }
         }
         transitions
+    }
+}
+
+impl NBA {
+    fn cached_successors(&self, state_id: usize) -> Vec<usize> {
+        if let Some(successors) = self
+            .successors_cache
+            .borrow()
+            .get(state_id)
+            .and_then(|entry| entry.clone())
+        {
+            return successors;
+        }
+
+        let Some(&(orig_state_id, acc_id, _)) = self.new_to_gnba.get(state_id) else {
+            return Vec::new();
+        };
+
+        let acc_count = self.gnba.acceptance_conditions.len();
+        if acc_count == 0 {
+            return Vec::new();
+        }
+
+        let next_acc_id = (acc_id + 1) % acc_count;
+        let mut successors = Vec::new();
+        for to in self.gnba.successors(orig_state_id) {
+            if let Some(&to_new) = self.gnba_to_new.get(&(to, next_acc_id)) {
+                successors.push(to_new);
+            }
+        }
+
+        self.successors_cache.borrow_mut()[state_id] = Some(successors.clone());
+        successors
     }
 }
 
