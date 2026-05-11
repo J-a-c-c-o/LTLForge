@@ -188,41 +188,57 @@ fn ndfs(petri: &PetriNet, nba: &NBA) -> bool {
     false
 }
 
-fn dfs1(ctx: &mut NDFSContext, state: CombinedState) -> bool {
-    ctx.visited.insert((state.clone(), 0));
-    ctx.stack.insert(state.clone());
+fn dfs1(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
+    let mut call_stack = Vec::new();
+    
+    ctx.visited.insert((init_state.clone(), 0));
+    ctx.stack.insert(init_state.clone());
+    call_stack.push((init_state.clone(), ctx.successors(&init_state).into_iter()));
 
-    for succ in ctx.successors(&state) {
-        if !ctx.visited.contains(&(succ.clone(), 0)) && dfs1(ctx, succ.clone()) {
-            return true;
+    while let Some((state, mut succs)) = call_stack.pop() {
+        if let Some(succ) = succs.next() {
+            call_stack.push((state.clone(), succs));
+            
+            if !ctx.visited.contains(&(succ.clone(), 0)) {
+                ctx.visited.insert((succ.clone(), 0));
+                ctx.stack.insert(succ.clone());
+                call_stack.push((succ.clone(), ctx.successors(&succ).into_iter()));
+            }
+        } else {
+            if ctx.is_accepting(&state) {
+                ctx.seed = Some((state.clone(), 1));
+                if dfs2(ctx, state.clone()) {
+                    return true;
+                }
+            }
+            ctx.stack.remove(&state);
         }
     }
-
-    if ctx.is_accepting(&state) {
-        ctx.seed = Some((state.clone(), 1));
-        if dfs2(ctx, state.clone()) {
-            return true;
-        }
-    }
-
-    ctx.stack.remove(&state);
     false
 }
 
-fn dfs2(ctx: &mut NDFSContext, state: CombinedState) -> bool {
-    ctx.visited.insert((state.clone(), 1));
-    ctx.stack2.insert(state.clone());
+fn dfs2(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
+    let mut call_stack = Vec::new();
+    
+    ctx.visited.insert((init_state.clone(), 1));
+    ctx.stack2.insert(init_state.clone());
+    call_stack.push((init_state.clone(), ctx.successors(&init_state).into_iter()));
 
-    for succ in ctx.successors(&state) {
-        if ctx.seed == Some((succ.clone(), 1)) {
-            return true;
-        }
-        if !ctx.visited.contains(&(succ.clone(), 1)) && dfs2(ctx, succ.clone()) {
-            return true;
+    while let Some((state, mut succs)) = call_stack.pop() {
+        if let Some(succ) = succs.next() {
+            call_stack.push((state.clone(), succs));
+            
+            if ctx.seed == Some((succ.clone(), 1)) {
+                return true;
+            }
+            if !ctx.visited.contains(&(succ.clone(), 1)) {
+                ctx.visited.insert((succ.clone(), 1));
+                ctx.stack2.insert(succ.clone());
+                call_stack.push((succ.clone(), ctx.successors(&succ).into_iter()));
+            }
+        } else {
+            ctx.stack2.remove(&state);
         }
     }
-
-    ctx.stack.remove(&state);
-
     false
 }
