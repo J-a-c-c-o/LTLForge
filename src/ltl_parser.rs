@@ -56,7 +56,7 @@ impl std::fmt::Display for LTL {
                 } else {
                     let joined = names
                         .iter()
-                        .map(|name| format!("\"{}\"" , name))
+                        .map(|name| format!("\"{}\"", name))
                         .collect::<Vec<_>>()
                         .join(", ");
                     write!(f, "#tokens({})", joined)

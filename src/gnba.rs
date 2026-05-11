@@ -162,7 +162,7 @@ impl GNBA {
                             "#tokens({})",
                             names
                                 .iter()
-                                .map(|name| format!("\"{}\"" , name))
+                                .map(|name| format!("\"{}\"", name))
                                 .collect::<Vec<_>>()
                                 .join(", ")
                         ))

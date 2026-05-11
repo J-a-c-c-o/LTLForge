@@ -98,15 +98,13 @@ fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool>
                 .iter()
                 .position(|p| &p.id == name)
                 .map(|idx| marking.tokens.get(idx).copied().unwrap_or(0) > 0),
-            LTL::Fireable(names) => {
-                Some(names.iter().any(|name| {
-                    petri
-                        .transitions
-                        .iter()
-                        .find(|t| &t.id == name)
-                        .is_some_and(|trans| trans.is_fireable_tokens(&marking.tokens))
-                }))
-            }
+            LTL::Fireable(names) => Some(names.iter().any(|name| {
+                petri
+                    .transitions
+                    .iter()
+                    .find(|t| &t.id == name)
+                    .is_some_and(|trans| trans.is_fireable_tokens(&marking.tokens))
+            })),
             LTL::LessEqual(left, right) => {
                 if let (Some(l), Some(r)) = (
                     eval_num(left, petri, marking),
@@ -198,7 +196,7 @@ fn ndfs(petri: &PetriNet, nba: &NBA) -> bool {
 
 fn dfs1(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
     let mut call_stack = Vec::new();
-    
+
     ctx.visited.insert((init_state.clone(), 0));
     ctx.stack.insert(init_state.clone());
     call_stack.push((init_state.clone(), ctx.successors(&init_state).into_iter()));
@@ -206,7 +204,7 @@ fn dfs1(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
     while let Some((state, mut succs)) = call_stack.pop() {
         if let Some(succ) = succs.next() {
             call_stack.push((state.clone(), succs));
-            
+
             if !ctx.visited.contains(&(succ.clone(), 0)) {
                 ctx.visited.insert((succ.clone(), 0));
                 ctx.stack.insert(succ.clone());
@@ -227,7 +225,7 @@ fn dfs1(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
 
 fn dfs2(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
     let mut call_stack = Vec::new();
-    
+
     ctx.visited.insert((init_state.clone(), 1));
     ctx.stack2.insert(init_state.clone());
     call_stack.push((init_state.clone(), ctx.successors(&init_state).into_iter()));
@@ -235,7 +233,7 @@ fn dfs2(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
     while let Some((state, mut succs)) = call_stack.pop() {
         if let Some(succ) = succs.next() {
             call_stack.push((state.clone(), succs));
-            
+
             if ctx.seed == Some((succ.clone(), 1)) {
                 return true;
             }
