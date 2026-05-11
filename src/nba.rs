@@ -115,9 +115,7 @@ impl NBA {
     pub fn successors(&self, state_id: usize) -> Vec<usize> {
         self.cached_successors(state_id)
     }
-}
 
-impl NBA {
     fn gnba_state_label(&self, gnba_state_id: usize) -> Vec<bool> {
         self.gnba.label(gnba_state_id)
     }
@@ -155,9 +153,7 @@ impl NBA {
         }
         transitions
     }
-}
 
-impl NBA {
     fn cached_successors(&self, state_id: usize) -> Vec<usize> {
         if let Some(successors) = self
             .successors_cache
