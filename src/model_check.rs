@@ -72,12 +72,18 @@ fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool>
     fn eval_num(expr: &LTL, petri: &PetriNet, marking: &PetriState) -> Option<i64> {
         match expr {
             LTL::Number(n) => Some(*n as i64),
-            LTL::TokenCount(name) => {
-                if let Some(idx) = petri.places.iter().position(|p| &p.id == name) {
-                    Some(marking.tokens.get(idx).copied().unwrap_or(0) as i64)
-                } else {
-                    Some(0)
-                }
+            LTL::TokenCount(names) => {
+                let total: i64 = names
+                    .iter()
+                    .filter_map(|name| {
+                        petri
+                            .places
+                            .iter()
+                            .position(|p| &p.id == name)
+                            .map(|idx| marking.tokens.get(idx).copied().unwrap_or(0) as i64)
+                    })
+                    .sum();
+                Some(total)
             }
             _ => None,
         }
@@ -92,12 +98,14 @@ fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool>
                 .iter()
                 .position(|p| &p.id == name)
                 .map(|idx| marking.tokens.get(idx).copied().unwrap_or(0) > 0),
-            LTL::Fireable(name) => {
-                if let Some(trans) = petri.transitions.iter().find(|t| &t.id == name) {
-                    Some(trans.is_fireable_tokens(&marking.tokens))
-                } else {
-                    Some(false)
-                }
+            LTL::Fireable(names) => {
+                Some(names.iter().any(|name| {
+                    petri
+                        .transitions
+                        .iter()
+                        .find(|t| &t.id == name)
+                        .is_some_and(|trans| trans.is_fireable_tokens(&marking.tokens))
+                }))
             }
             LTL::LessEqual(left, right) => {
                 if let (Some(l), Some(r)) = (

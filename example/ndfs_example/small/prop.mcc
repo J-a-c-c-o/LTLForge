@@ -12,5 +12,5 @@ A G F (("t1"?))
 end.
 
 Property example_prop_03 "Generally t2 or t3 can be fired" is:
-A G (("t2"? || "t3"?))
+A G ((("t1", "t2", "t3")?))
 end.

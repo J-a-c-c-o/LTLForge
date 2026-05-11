@@ -4,7 +4,7 @@ use nom::{
     bytes::complete::{tag, take_while},
     character::complete::{alpha1, alphanumeric1, char, digit1, multispace0},
     combinator::{map, value},
-    multi::many0,
+    multi::{many0, separated_list1},
     sequence::{delimited, pair, preceded, terminated},
 };
 
@@ -22,8 +22,8 @@ pub enum LTL {
     GreaterEqual(Box<LTL>, Box<LTL>),
     Greater(Box<LTL>, Box<LTL>),
     Less(Box<LTL>, Box<LTL>),
-    TokenCount(String),
-    Fireable(String),
+    TokenCount(Vec<String>),
+    Fireable(Vec<String>),
     Number(u32),
     Next(Box<LTL>),
     Eventually(Box<LTL>),
@@ -50,8 +50,30 @@ impl std::fmt::Display for LTL {
             LTL::GreaterEqual(left, right) => write!(f, "({} >= {})", left, right),
             LTL::Greater(left, right) => write!(f, "({} > {})", left, right),
             LTL::Less(left, right) => write!(f, "({} < {})", left, right),
-            LTL::TokenCount(name) => write!(f, "#tokens(\"{}\")", name),
-            LTL::Fireable(name) => write!(f, "\"{}\"?", name),
+            LTL::TokenCount(names) => {
+                if names.len() == 1 {
+                    write!(f, "#tokens(\"{}\")", names[0])
+                } else {
+                    let joined = names
+                        .iter()
+                        .map(|name| format!("\"{}\"" , name))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    write!(f, "#tokens({})", joined)
+                }
+            }
+            LTL::Fireable(names) => {
+                if names.len() == 1 {
+                    write!(f, "\"{}\"?", names[0])
+                } else {
+                    let joined = names
+                        .iter()
+                        .map(|name| format!("\"{}\"", name))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    write!(f, "({})?", joined)
+                }
+            }
             LTL::Number(n) => write!(f, "{}", n),
             LTL::Next(inner) => write!(f, "X {}", inner),
             LTL::Eventually(inner) => write!(f, "F {}", inner),
@@ -216,17 +238,38 @@ fn parse_token_count(input: &str) -> IResult<&str, LTL> {
     map(
         preceded(
             ws(tag("#tokens")),
-            delimited(ws(char('(')), ws(parse_quoted_string), ws(char(')'))),
+            delimited(
+                ws(char('(')),
+                map(
+                    separated_list1(ws(char(',')), ws(parse_quoted_string)),
+                    |names| names.into_iter().map(str::to_string).collect(),
+                ),
+                ws(char(')')),
+            ),
         ),
-        |name| LTL::TokenCount(name.to_string()),
+        LTL::TokenCount,
     )
     .parse(input)
 }
 
 fn parse_fireable(input: &str) -> IResult<&str, LTL> {
-    map(terminated(ws(parse_quoted_string), ws(char('?'))), |name| {
-        LTL::Fireable(name.to_string())
-    })
+    map(
+        terminated(
+            alt((
+                map(ws(parse_quoted_string), |name| vec![name.to_string()]),
+                map(
+                    delimited(
+                        ws(char('(')),
+                        separated_list1(ws(char(',')), ws(parse_quoted_string)),
+                        ws(char(')')),
+                    ),
+                    |names| names.into_iter().map(str::to_string).collect(),
+                ),
+            )),
+            ws(char('?')),
+        ),
+        LTL::Fireable,
+    )
     .parse(input)
 }
 
@@ -474,9 +517,9 @@ mod tests {
         let expected = LTL::And(
             Box::new(LTL::LessEqual(
                 Box::new(LTL::Number(1)),
-                Box::new(LTL::TokenCount("stp4".to_string())),
+                Box::new(LTL::TokenCount(vec!["stp4".to_string()])),
             )),
-            Box::new(LTL::Not(Box::new(LTL::Fireable("t2_2".to_string())))),
+            Box::new(LTL::Not(Box::new(LTL::Fireable(vec!["t2_2".to_string()])))),
         );
 
         assert_eq!(parsed, expected);
@@ -489,12 +532,12 @@ mod tests {
         )
         .unwrap();
 
-        let fire_t22 = LTL::Fireable("t2_2".to_string());
+        let fire_t22 = LTL::Fireable(vec!["t2_2".to_string()]);
         let fire_t42_or_speed = LTL::Or(
-            Box::new(LTL::Fireable("t4_2".to_string())),
-            Box::new(LTL::Fireable("SpeedRW".to_string())),
+            Box::new(LTL::Fireable(vec!["t4_2".to_string()])),
+            Box::new(LTL::Fireable(vec!["SpeedRW".to_string()])),
         );
-        let fire_speed = LTL::Fireable("SpeedRW".to_string());
+        let fire_speed = LTL::Fireable(vec!["SpeedRW".to_string()]);
 
         let nested_until = LTL::Until(
             Box::new(LTL::Next(Box::new(fire_t42_or_speed))),
@@ -516,5 +559,25 @@ mod tests {
     #[test]
     fn test_invalid() {
         assert!(parse_ltl_all("E X (a U b)").is_err());
+    }
+
+    #[test]
+    fn test_parse_token_count_list() {
+        let parsed = parse_expr_all("#tokens(\"p1\", \"p2\", \"p3\")").unwrap();
+
+        assert_eq!(
+            parsed,
+            LTL::TokenCount(vec!["p1".to_string(), "p2".to_string(), "p3".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_parse_fireable_list() {
+        let parsed = parse_ltl_all("(\"t1\", \"t2\", \"t3\")?").unwrap();
+
+        assert_eq!(
+            parsed,
+            LTL::Fireable(vec!["t1".to_string(), "t2".to_string(), "t3".to_string()])
+        );
     }
 }

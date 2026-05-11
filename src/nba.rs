@@ -238,7 +238,34 @@ impl NBA {
                 LTL::Var(name) => Some(name.clone()),
                 LTL::True => Some("true".to_string()),
                 LTL::False => Some("false".to_string()),
-                LTL::Fireable(name) => Some(format!("\"{}\"?", name)),
+                LTL::TokenCount(names) => {
+                    if names.len() == 1 {
+                        Some(format!("#tokens(\"{}\")", names[0]))
+                    } else {
+                        Some(format!(
+                            "#tokens({})",
+                            names
+                                .iter()
+                                .map(|name| format!("\"{}\"" , name))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        ))
+                    }
+                }
+                LTL::Fireable(names) => {
+                    if names.len() == 1 {
+                        Some(format!("\"{}\"?", names[0]))
+                    } else {
+                        Some(format!(
+                            "({})?",
+                            names
+                                .iter()
+                                .map(|name| format!("\"{}\"", name))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        ))
+                    }
+                }
                 LTL::LessEqual(_, _)
                 | LTL::GreaterEqual(_, _)
                 | LTL::Greater(_, _)
