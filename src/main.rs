@@ -38,6 +38,9 @@ enum Commands {
         pnml_file: String,
         /// LTL specification file
         ltl_file: String,
+        /// Show counterexample paths and cycles if property is violated
+        #[arg(long, short)]
+        show_counterexample: bool,
     },
     /// Convert LTL formula to positive normal form
     Pnf {
@@ -168,6 +171,7 @@ fn main() {
         Commands::Check {
             pnml_file,
             ltl_file,
+            show_counterexample,
         } => {
             println!(
                 "{} PNML: {}, LTL: {}",
@@ -210,13 +214,15 @@ fn main() {
                                     .bold()
                             );
 
-                            println!();
-                            println!("{}", "Counterexample path:".blue().bold());
-                            printstack(&counterexample_path, petri_net);
+                            if show_counterexample {
+                                println!();
+                                println!("{}", "Counterexample path:".blue().bold());
+                                printstack(&counterexample_path, petri_net);
 
-                            println!();
-                            println!("{}", "Counterexample cycle:".blue().bold());
-                            printstack(&counterexample_cycle, petri_net);
+                                println!();
+                                println!("{}", "Counterexample cycle:".blue().bold());
+                                printstack(&counterexample_cycle, petri_net);
+                            }
                         }
                         println!();
                     }
@@ -316,7 +322,7 @@ fn main() {
                     for (name, formula) in formulas {
                         println!("{}", format!("[{}]", name).magenta().bold());
                         println!("  {} {}", "Formula:".blue(), formula);
-                        let (nba_sat, gnba_sat) = emptyness::is_satisfiable(&formula);
+                        let ((nba_sat, _, _), (gnba_sat, _, _)) = emptyness::is_satisfiable(&formula);
 
                         let sat_str = |val: bool| {
                             if val {

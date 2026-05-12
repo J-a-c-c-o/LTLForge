@@ -437,31 +437,4 @@ mod tests {
 
         assert_eq!(pnf, expected);
     }
-
-    fn test_big_pnf() {
-        let ltl = LTL::Next(Box::new(LTL::Globally(Box::new(LTL::Not(Box::new(LTL::Next(Box::new(
-            LTL::Not(Box::new(LTL::Eventually(Box::new(LTL::Fireable(vec![
-                "unstack_60".to_string()
-            ])))),
-        )))))))));
-
-        let pnf = to_pnf(&ltl);
-
-        let expected = LTL::Next(Box::new(LTL::Release(
-            Box::new(LTL::False),
-            Box::new(LTL::Or(
-                Box::new(LTL::Not(Box::new(LTL::Next(Box::new(LTL::Not(Box::new(
-                    LTL::Eventually(Box::new(LTL::Fireable(vec!["unstack_60".to_string()])),
-                )))))))),
-                Box::new(LTL::Not(Box::new(LTL::Globally(Box::new(LTL::Not(Box::new(
-                    LTL::Next(Box::new(LTL::Not(Box::new(LTL::Eventually(Box::new(
-                        LTL::Fireable(vec!["unstack_60".to_string()]),
-                    ))))),
-                )))))))),
-            )),
-        )));
-        
-
-        assert_eq!(pnf, expected);
-    }
 }

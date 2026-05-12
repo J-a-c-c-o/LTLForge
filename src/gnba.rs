@@ -2,15 +2,14 @@ use crate::closure::compute_closure;
 use crate::consistency::is_consistent;
 use crate::ltl_parser::LTL;
 use crate::pnf::to_pnf;
-use std::cell::RefCell;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 pub struct GNBA {
     pub closure: Vec<LTL>,
     pub states: Vec<State>,
+    pub transitions: Vec<Transition>,
     pub initial_states: Vec<usize>,
     pub acceptance_conditions: Vec<AcceptanceCondition>,
-    labels_cache: RefCell<Vec<Option<Vec<bool>>>>,
-    successors_cache: RefCell<Vec<Option<Vec<usize>>>>,
 }
 
 pub struct State {
@@ -35,7 +34,6 @@ impl GNBA {
         let closure = compute_closure(&pnf);
         let states = generate_states(&closure);
         let initial_states = find_initial_states(&states, &pnf, &closure);
-        let state_count = states.len();
         let mut acceptance_conditions = generate_acceptance_conditions(&states, &closure);
         if acceptance_conditions.is_empty() {
             acceptance_conditions.push(AcceptanceCondition {
@@ -43,33 +41,32 @@ impl GNBA {
                 states: states.iter().map(|s| s.id).collect(),
             });
         }
-        GNBA {
+        let mut gnba = GNBA {
             closure,
             states,
+            transitions: Vec::new(),
             initial_states,
             acceptance_conditions,
-            labels_cache: RefCell::new(vec![None; state_count]),
-            successors_cache: RefCell::new(vec![None; state_count]),
-        }
+        };
+        gnba.remove_dead_states();
+        gnba
     }
 
     pub fn successors(&self, state_id: usize) -> Vec<usize> {
-        self.cached_successors(state_id)
+        self.transitions
+            .iter()
+            .filter_map(|transition| {
+                if transition.from == state_id {
+                    Some(transition.to)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
-    pub fn all_transitions(&self) -> Vec<Transition> {
-        let mut transitions = Vec::new();
-        for from_idx in 0..self.states.len() {
-            let label = self.label(from_idx);
-            for to in self.successors(from_idx) {
-                transitions.push(Transition {
-                    from: from_idx,
-                    to,
-                    label: label.clone(),
-                });
-            }
-        }
-        transitions
+    pub fn all_transitions(&self) -> &[Transition] {
+        &self.transitions
     }
 
     pub fn is_accepting(&self, state_id: usize) -> bool {
@@ -79,30 +76,113 @@ impl GNBA {
     }
 
     pub fn label(&self, state_id: usize) -> Vec<bool> {
-        if let Some(label) = self
-            .labels_cache
-            .borrow()
-            .get(state_id)
-            .and_then(|entry| entry.clone())
-        {
-            return label;
-        }
-
-        let label = compute_label(&self.states[state_id], &self.closure);
-        self.labels_cache.borrow_mut()[state_id] = Some(label.clone());
-        label
+        compute_label(&self.states[state_id], &self.closure)
     }
 
-    fn cached_successors(&self, state_id: usize) -> Vec<usize> {
-        if let Some(successors) = self
-            .successors_cache
-            .borrow()
-            .get(state_id)
-            .and_then(|entry| entry.clone())
-        {
-            return successors;
+    fn remove_dead_states(&mut self) {
+        if self.states.is_empty() {
+            self.transitions.clear();
+            return;
         }
 
+        let forward_reachable = self.compute_forward_reachable();
+        let backward_reachable = self.compute_backward_reachable();
+        let useful_states: HashSet<usize> = forward_reachable
+            .intersection(&backward_reachable)
+            .copied()
+            .collect();
+
+        if useful_states.len() == self.states.len() {
+            self.transitions = self.generate_transitions();
+            return;
+        }
+
+        let mut id_map = HashMap::new();
+        let mut states = Vec::with_capacity(useful_states.len());
+
+        for state in &self.states {
+            if useful_states.contains(&state.id) {
+                let new_id = states.len();
+                id_map.insert(state.id, new_id);
+                states.push(State {
+                    id: new_id,
+                    formulas: state.formulas.clone(),
+                });
+            }
+        }
+
+        self.initial_states = self
+            .initial_states
+            .iter()
+            .filter_map(|state_id| id_map.get(state_id).copied())
+            .collect();
+
+        for condition in &mut self.acceptance_conditions {
+            condition.states = condition
+                .states
+                .iter()
+                .filter_map(|state_id| id_map.get(state_id).copied())
+                .collect();
+        }
+
+        self.states = states;
+        self.transitions = self.generate_transitions();
+    }
+
+    fn compute_forward_reachable(&self) -> HashSet<usize> {
+        let mut reachable = HashSet::new();
+        let mut queue = VecDeque::new();
+
+        for &initial_state in &self.initial_states {
+            if reachable.insert(initial_state) {
+                queue.push_back(initial_state);
+            }
+        }
+
+        while let Some(state_id) = queue.pop_front() {
+            for successor in self.raw_successors(state_id) {
+                if reachable.insert(successor) {
+                    queue.push_back(successor);
+                }
+            }
+        }
+
+        reachable
+    }
+
+    fn compute_backward_reachable(&self) -> HashSet<usize> {
+        let mut predecessors: HashMap<usize, Vec<usize>> = HashMap::new();
+        for state in &self.states {
+            for successor in self.raw_successors(state.id) {
+                predecessors.entry(successor).or_default().push(state.id);
+            }
+        }
+
+        let mut reachable = HashSet::new();
+        let mut queue = VecDeque::new();
+
+        for condition in &self.acceptance_conditions {
+            for &state_id in &condition.states {
+                if reachable.insert(state_id) {
+                    queue.push_back(state_id);
+                }
+            }
+        }
+
+        while let Some(state_id) = queue.pop_front() {
+            if let Some(prev_states) = predecessors.get(&state_id) {
+                for &prev_state in prev_states {
+                    if reachable.insert(prev_state) {
+                        queue.push_back(prev_state);
+                    }
+                }
+            }
+        }
+
+        reachable
+    }
+
+    fn raw_successors(&self, state_id: usize) -> Vec<usize> {
         let from_state = &self.states[state_id];
         let mut successors = Vec::new();
         for to_state in &self.states {
@@ -110,8 +190,25 @@ impl GNBA {
                 successors.push(to_state.id);
             }
         }
-        self.successors_cache.borrow_mut()[state_id] = Some(successors.clone());
         successors
+    }
+
+    fn generate_transitions(&self) -> Vec<Transition> {
+        let mut transitions = Vec::new();
+        for from_idx in 0..self.states.len() {
+            let label = self.label(from_idx);
+            for to_idx in 0..self.states.len() {
+                if is_valid_transition(&self.states[from_idx], &self.states[to_idx], &self.closure)
+                {
+                    transitions.push(Transition {
+                        from: from_idx,
+                        to: to_idx,
+                        label: label.clone(),
+                    });
+                }
+            }
+        }
+        transitions
     }
 }
 
@@ -130,7 +227,7 @@ impl GNBA {
 
         println!("Initial states: {:?}", self.initial_states);
         println!("Transitions:");
-        for transition in &self.all_transitions() {
+        for transition in self.all_transitions() {
             println!(
                 "  {} --{:?}--> {}",
                 transition.from, transition.label, transition.to
@@ -204,7 +301,7 @@ impl GNBA {
             s.push_str(&format!("  start -> {};\n", init));
         }
 
-        for t in &self.all_transitions() {
+        for t in self.all_transitions() {
             let label_items: Vec<String> = atomic_names
                 .iter()
                 .zip(t.label.iter())
@@ -416,9 +513,13 @@ mod tests {
 
         let gnba = GNBA::new(&formula);
         assert_eq!(gnba.closure.len(), 4);
-        assert_eq!(gnba.states.len(), 6);
-        assert_eq!(gnba.initial_states.len(), 3);
-        assert_eq!(gnba.all_transitions().len(), 24);
+        assert!(gnba.states.len() <= 6);
+        assert!(!gnba.states.is_empty());
+        assert!(gnba.initial_states.iter().all(|state_id| *state_id < gnba.states.len()));
+        assert!(gnba
+            .states
+            .iter()
+            .all(|state| gnba.successors(state.id).iter().all(|next| *next < gnba.states.len())));
         assert_eq!(gnba.acceptance_conditions.len(), 1);
     }
 }

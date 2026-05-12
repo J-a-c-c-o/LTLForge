@@ -1,16 +1,16 @@
 use crate::gnba::GNBA;
 use crate::ltl_parser::LTL;
-use std::cell::RefCell;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 pub struct NBA {
     pub closure: Vec<LTL>,
     pub states: Vec<State>,
+    pub transitions: Vec<Transition>,
     pub initial_states: Vec<usize>,
     pub acceptance_condition: AcceptanceCondition,
     new_to_gnba: Vec<(usize, usize, usize)>,
     gnba_to_new: std::collections::HashMap<(usize, usize), usize>,
     gnba: GNBA,
-    successors_cache: RefCell<Vec<Option<Vec<usize>>>>,
 }
 
 pub struct State {
@@ -36,7 +36,7 @@ impl NBA {
         // Create x copies of each accepting state, where x is the number of acceptance conditions
         let mut states = Vec::new();
         let mut new_to_gnba = Vec::new();
-        let mut gnba_to_new = std::collections::HashMap::new();
+        let mut gnba_to_new = HashMap::new();
         let mut new_state_id = 0;
         let closure = gnba.closure.clone();
 
@@ -64,8 +64,6 @@ impl NBA {
             })
             .collect();
 
-        let state_count = states.len();
-
         // Accepting state: first of the gnba
         let acceptance_condition = AcceptanceCondition {
             id: 0,
@@ -80,17 +78,18 @@ impl NBA {
                 })
                 .collect(),
         };
-
-        NBA {
+        let mut nba = NBA {
             closure,
             states,
+            transitions: Vec::new(),
             initial_states,
             acceptance_condition,
             new_to_gnba,
             gnba_to_new,
             gnba,
-            successors_cache: RefCell::new(vec![None; state_count]),
-        }
+        };
+        nba.remove_dead_states();
+        nba
     }
 
     pub fn initial_states(&self) -> Vec<usize> {
@@ -109,11 +108,20 @@ impl NBA {
             return Vec::new();
         }
 
-        self.cached_successors(state_id)
+        self.successors(state_id)
     }
 
     pub fn successors(&self, state_id: usize) -> Vec<usize> {
-        self.cached_successors(state_id)
+        self.transitions
+            .iter()
+            .filter_map(|transition| {
+                if transition.from == state_id {
+                    Some(transition.to)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     fn gnba_state_label(&self, gnba_state_id: usize) -> Vec<bool> {
@@ -136,34 +144,140 @@ impl NBA {
             .collect()
     }
 
+    fn remove_dead_states(&mut self) {
+        if self.states.is_empty() {
+            self.transitions.clear();
+            return;
+        }
+
+        let forward_reachable = self.compute_forward_reachable();
+        let backward_reachable = self.compute_backward_reachable();
+        let useful_states: HashSet<usize> = forward_reachable
+            .intersection(&backward_reachable)
+            .copied()
+            .collect();
+
+        if useful_states.len() == self.states.len() {
+            self.transitions = self.generate_transitions();
+            return;
+        }
+
+        let mut id_map = HashMap::new();
+        let mut states = Vec::with_capacity(useful_states.len());
+        let mut new_to_gnba = Vec::with_capacity(useful_states.len());
+        let mut gnba_to_new = HashMap::with_capacity(useful_states.len());
+
+        for (old_id, state) in self.states.iter().enumerate() {
+            if useful_states.contains(&old_id) {
+                let new_id = states.len();
+                id_map.insert(old_id, new_id);
+                states.push(State {
+                    id: new_id,
+                    formulas: state.formulas.clone(),
+                });
+
+                let (orig_state_id, acc_id, _) = self.new_to_gnba[old_id];
+                new_to_gnba.push((orig_state_id, acc_id, new_id));
+                gnba_to_new.insert((orig_state_id, acc_id), new_id);
+            }
+        }
+
+        self.initial_states = self
+            .initial_states
+            .iter()
+            .filter_map(|state_id| id_map.get(state_id).copied())
+            .collect();
+
+        self.acceptance_condition.states = self
+            .acceptance_condition
+            .states
+            .iter()
+            .filter_map(|state_id| id_map.get(state_id).copied())
+            .collect();
+
+        self.states = states;
+        self.new_to_gnba = new_to_gnba;
+        self.gnba_to_new = gnba_to_new;
+        self.transitions = self.generate_transitions();
+    }
+
+    fn compute_forward_reachable(&self) -> HashSet<usize> {
+        let mut reachable = HashSet::new();
+        let mut queue = VecDeque::new();
+
+        for &initial_state in &self.initial_states {
+            if reachable.insert(initial_state) {
+                queue.push_back(initial_state);
+            }
+        }
+
+        while let Some(state_id) = queue.pop_front() {
+            for successor in self.raw_successors(state_id) {
+                if reachable.insert(successor) {
+                    queue.push_back(successor);
+                }
+            }
+        }
+
+        reachable
+    }
+
+    fn compute_backward_reachable(&self) -> HashSet<usize> {
+        let mut predecessors: HashMap<usize, Vec<usize>> = HashMap::new();
+        for state in &self.states {
+            for successor in self.raw_successors(state.id) {
+                predecessors.entry(successor).or_default().push(state.id);
+            }
+        }
+
+        let mut reachable = HashSet::new();
+        let mut queue = VecDeque::new();
+
+        for &state_id in &self.acceptance_condition.states {
+            if reachable.insert(state_id) {
+                queue.push_back(state_id);
+            }
+        }
+
+        while let Some(state_id) = queue.pop_front() {
+            if let Some(prev_states) = predecessors.get(&state_id) {
+                for &prev_state in prev_states {
+                    if reachable.insert(prev_state) {
+                        queue.push_back(prev_state);
+                    }
+                }
+            }
+        }
+
+        reachable
+    }
+
     /// Generates transitions for the NBA based on the states and closure
     fn generate_transitions(&self) -> Vec<Transition> {
         let mut transitions = Vec::new();
-        // Build transitions from cached NBA successors and GNBA labels
         for from_new_id in 0..self.states.len() {
-            let (orig_state_id, _acc_id, _new_id) = self.new_to_gnba[from_new_id];
+            let (orig_state_id, acc_id, _) = self.new_to_gnba[from_new_id];
             let label = self.gnba.label(orig_state_id);
-            for to_new in self.cached_successors(from_new_id) {
-                transitions.push(Transition {
-                    from: from_new_id,
-                    to: to_new,
-                    label: label.clone(),
-                });
+            let acc_count = self.gnba.acceptance_conditions.len();
+            if acc_count == 0 {
+                continue;
+            }
+
+            let next_acc_id = (acc_id + 1) % acc_count;
+            for to in self.gnba.successors(orig_state_id) {
+                if let Some(&to_new) = self.gnba_to_new.get(&(to, next_acc_id)) {
+                    transitions.push(Transition {
+                        from: from_new_id,
+                        to: to_new,
+                        label: label.clone(),
+                    });
+                }
             }
         }
         transitions
     }
 
-    fn cached_successors(&self, state_id: usize) -> Vec<usize> {
-        if let Some(successors) = self
-            .successors_cache
-            .borrow()
-            .get(state_id)
-            .and_then(|entry| entry.clone())
-        {
-            return successors;
-        }
-
+    fn raw_successors(&self, state_id: usize) -> Vec<usize> {
         let Some(&(orig_state_id, acc_id, _)) = self.new_to_gnba.get(state_id) else {
             return Vec::new();
         };
@@ -180,8 +294,6 @@ impl NBA {
                 successors.push(to_new);
             }
         }
-
-        self.successors_cache.borrow_mut()[state_id] = Some(successors.clone());
         successors
     }
 }
@@ -201,7 +313,7 @@ impl NBA {
 
         println!("Initial states: {:?}", self.initial_states);
         println!("Transitions:");
-        for transition in &self.generate_transitions() {
+        for transition in &self.transitions {
             println!(
                 "  {} --{:?}--> {}",
                 transition.from, transition.label, transition.to
@@ -275,7 +387,7 @@ impl NBA {
             s.push_str(&format!("  {} [label=\"{}\"];\n", state.id, state.id));
         }
 
-        for t in &self.generate_transitions() {
+        for t in &self.transitions {
             let label_items: Vec<String> = atomic_names
                 .iter()
                 .zip(t.label.iter())

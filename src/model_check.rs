@@ -2,13 +2,13 @@ use crate::emptyness::check_emptyness_nba;
 use crate::ltl_parser::LTL;
 use crate::nba::NBA;
 use crate::petri_net::{PetriNet, PetriState};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub fn model_check(petri_net: &PetriNet, ltl: &LTL) -> (bool, Option<Vec<CombinedState>>, Option<Vec<CombinedState>>) {
     let negated_ltl = ltl.negate();
     let nba = NBA::new(&negated_ltl);
     let is_empty = check_emptyness_nba(&nba);
-    if is_empty {
+    if is_empty.0 {
         println!(
             "The language of the NBA is empty, which means the original LTL formula is valid on all traces of the Petri net."
         );
@@ -29,6 +29,9 @@ struct NDFSContext<'a> {
     petri: &'a PetriNet,
     nba: &'a NBA,
 
+    petri_successor_cache: HashMap<PetriState, Vec<PetriState>>,
+    label_cache: HashMap<PetriState, Vec<bool>>,
+
     seed: Option<(CombinedState, usize)>,
 
     visited: HashSet<(CombinedState, usize)>,
@@ -37,13 +40,24 @@ struct NDFSContext<'a> {
 }
 
 impl<'a> NDFSContext<'a> {
-    fn successors(&self, state: &CombinedState) -> Vec<CombinedState> {
+    fn petri_successors_cached(&mut self, state: &PetriState) -> Vec<PetriState> {
+        if let Some(successors) = self.petri_successor_cache.get(state) {
+            return successors.clone();
+        }
+
+        let successors = self.petri.next_states(state);
+        self.petri_successor_cache
+            .insert(state.clone(), successors.clone());
+        successors
+    }
+
+    fn successors(&mut self, state: &CombinedState) -> Vec<CombinedState> {
         let mut result = Vec::new();
 
-        let enabled = self.petri.next_states(&state.petri_state);
+        let enabled = self.petri_successors_cached(&state.petri_state);
 
         for next_marking in enabled {
-            let label = compute_label(&next_marking, self.petri, self.nba);
+            let label = self.compute_label_cached(&next_marking);
 
             let next_nba_states = self.nba.next(state.nba_state, &label);
 
@@ -55,6 +69,16 @@ impl<'a> NDFSContext<'a> {
             }
         }
         result
+    }
+
+    fn compute_label_cached(&mut self, marking: &PetriState) -> Vec<bool> {
+        if let Some(label) = self.label_cache.get(marking) {
+            return label.clone();
+        }
+
+        let label = compute_label(marking, self.petri, self.nba);
+        self.label_cache.insert(marking.clone(), label.clone());
+        label
     }
 
     fn is_accepting(&self, state: &CombinedState) -> bool {
@@ -163,6 +187,8 @@ fn ndfs(petri: &PetriNet, nba: &NBA) -> (bool, Option<Vec<CombinedState>>, Optio
     let mut ctx = NDFSContext {
         petri,
         nba,
+        petri_successor_cache: HashMap::new(),
+        label_cache: HashMap::new(),
         seed: None,
         visited: HashSet::new(),
         stack: Vec::new(),

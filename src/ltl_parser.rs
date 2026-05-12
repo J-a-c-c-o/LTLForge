@@ -97,8 +97,8 @@ impl LTL {
             | LTL::TokenCount(_)
             | LTL::Fireable(_)
             | LTL::Number(_) => 1,
-            LTL::Not(inner) => 1 + inner.size(),
-            LTL::Next(inner)
+            LTL::Not(inner)
+            | LTL::Next(inner)
             | LTL::Eventually(inner)
             | LTL::Globally(inner)
             | LTL::AllPaths(inner)

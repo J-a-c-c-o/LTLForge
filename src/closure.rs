@@ -121,4 +121,29 @@ mod tests {
             assert!(closure.contains(&expr));
         }
     }
+
+    #[test]
+    fn test_sorted_closure() {
+        let ltl = LTL::And(
+            Box::new(LTL::Var("a".to_string())),
+            Box::new(LTL::Eventually(Box::new(LTL::Var("b".to_string())))),
+        );
+        let closure = compute_closure(&ltl);
+        println!("Closure: {closure:#?}");
+
+        let expected_closure = vec![
+            LTL::Var("a".to_string()),
+            LTL::Var("b".to_string()),
+            LTL::Eventually(Box::new(LTL::Var("b".to_string()))),
+            LTL::And(
+                Box::new(LTL::Var("a".to_string())),
+                Box::new(LTL::Eventually(Box::new(LTL::Var("b".to_string())))),
+            ),
+        ];
+
+        assert_eq!(closure.len(), expected_closure.len());
+        for (c, e) in closure.iter().zip(expected_closure.iter()) {
+            assert_eq!(c, e);
+        }
+    }
 }

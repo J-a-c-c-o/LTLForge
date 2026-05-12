@@ -2,19 +2,19 @@ use crate::gnba::GNBA;
 use crate::ltl_parser::LTL;
 use crate::nba::NBA;
 
-pub fn is_satisfiable(ltl: &LTL) -> (bool, bool) {
+pub fn is_satisfiable(ltl: &LTL) -> ((bool, Option<Vec<usize>>, Option<Vec<usize>>), (bool, Option<Vec<usize>>, Option<Vec<usize>>)) {
     let gnba = GNBA::new(ltl);
     let nba = NBA::new(ltl);
     let nba_empty = check_emptyness_nba(&nba);
     let gnba_empty = check_emptyness_gnba(&gnba);
-    (!nba_empty, !gnba_empty)
+    ((!nba_empty.0, nba_empty.1, nba_empty.2), (!gnba_empty.0, gnba_empty.1, gnba_empty.2))
 }
 
-pub fn check_emptyness_nba(nba: &NBA) -> bool {
+pub fn check_emptyness_nba(nba: &NBA) -> (bool, Option<Vec<usize>>, Option<Vec<usize>>) {
     for initial_state in &nba.initial_states {
         let visited = std::collections::HashSet::new();
-        let stack = std::collections::HashSet::new();
-        let stack2 = std::collections::HashSet::new();
+        let stack = Vec::new();
+        let stack2 = Vec::new();
         let mut ctx = NDFSContextNBA {
             nba,
             visited,
@@ -23,17 +23,17 @@ pub fn check_emptyness_nba(nba: &NBA) -> bool {
             seed: None,
         };
         if dfs1_nba(&mut ctx, *initial_state) {
-            return false;
+            return (false, Some(ctx.stack), Some(ctx.stack2));
         }
     }
-    true
+    (true, None, None)
 }
 
-pub fn check_emptyness_gnba(gnba: &GNBA) -> bool {
+pub fn check_emptyness_gnba(gnba: &GNBA) -> (bool, Option<Vec<usize>>, Option<Vec<usize>>) {
     for initial_state in &gnba.initial_states {
         let visited = std::collections::HashSet::new();
-        let stack = std::collections::HashSet::new();
-        let stack2 = std::collections::HashSet::new();
+        let stack = Vec::new();
+        let stack2 = Vec::new();
         let mut ctx = NDFSContextGNBA {
             gnba,
             visited,
@@ -42,23 +42,23 @@ pub fn check_emptyness_gnba(gnba: &GNBA) -> bool {
             seed: None,
         };
         if dfs1_gnba(&mut ctx, *initial_state) {
-            return false;
+            return (false, Some(ctx.stack), Some(ctx.stack2));
         }
     }
-    true
+    (true, None, None)
 }
 
 struct NDFSContextNBA<'a> {
     nba: &'a NBA,
     visited: std::collections::HashSet<(usize, usize)>,
-    stack: std::collections::HashSet<usize>,
-    stack2: std::collections::HashSet<usize>,
+    stack: Vec<usize>,
+    stack2: Vec<usize>,
     seed: Option<(usize, usize)>,
 }
 
 fn dfs1_nba(ctx: &mut NDFSContextNBA, state: usize) -> bool {
     ctx.visited.insert((state, 0));
-    ctx.stack.insert(state);
+    ctx.stack.push(state);
 
     for succ in ctx.nba.successors(state) {
         if !ctx.visited.contains(&(succ, 0)) && dfs1_nba(ctx, succ) {
@@ -73,13 +73,13 @@ fn dfs1_nba(ctx: &mut NDFSContextNBA, state: usize) -> bool {
         }
     }
 
-    ctx.stack.remove(&state);
+    ctx.stack.pop();
     false
 }
 
 fn dfs2_nba(ctx: &mut NDFSContextNBA, state: usize) -> bool {
     ctx.visited.insert((state, 1));
-    ctx.stack2.insert(state);
+    ctx.stack2.push(state);
 
     for succ in ctx.nba.successors(state) {
         if ctx.seed == Some((succ, 1)) {
@@ -90,21 +90,21 @@ fn dfs2_nba(ctx: &mut NDFSContextNBA, state: usize) -> bool {
         }
     }
 
-    ctx.stack2.remove(&state);
+    ctx.stack2.pop();
     false
 }
 
 struct NDFSContextGNBA<'a> {
     gnba: &'a GNBA,
     visited: std::collections::HashSet<(usize, usize)>,
-    stack: std::collections::HashSet<usize>,
-    stack2: std::collections::HashSet<usize>,
+    stack: Vec<usize>,
+    stack2: Vec<usize>,
     seed: Option<(usize, usize)>,
 }
 
 fn dfs1_gnba(ctx: &mut NDFSContextGNBA, state: usize) -> bool {
     ctx.visited.insert((state, 0));
-    ctx.stack.insert(state);
+    ctx.stack.push(state);
 
     for succ in ctx.gnba.successors(state) {
         if !ctx.visited.contains(&(succ, 0)) && dfs1_gnba(ctx, succ) {
@@ -119,13 +119,13 @@ fn dfs1_gnba(ctx: &mut NDFSContextGNBA, state: usize) -> bool {
         }
     }
 
-    ctx.stack.remove(&state);
+    ctx.stack.pop();
     false
 }
 
 fn dfs2_gnba(ctx: &mut NDFSContextGNBA, state: usize) -> bool {
     ctx.visited.insert((state, 1));
-    ctx.stack2.insert(state);
+    ctx.stack2.push(state);
 
     for succ in ctx.gnba.successors(state) {
         if ctx.seed == Some((succ, 1)) {
@@ -136,7 +136,7 @@ fn dfs2_gnba(ctx: &mut NDFSContextGNBA, state: usize) -> bool {
         }
     }
 
-    ctx.stack2.remove(&state);
+    ctx.stack2.pop();
     false
 }
 
@@ -160,19 +160,19 @@ mod tests {
             let (_, ltl) = parse_ltl(formula).unwrap();
             let (nba_sat, gnba_sat) = is_satisfiable(&ltl);
 
-            assert_eq!(nba_sat, !expected_empty, "NBA mismatch for {formula}");
-            assert_eq!(gnba_sat, !expected_empty, "GNBA mismatch for {formula}");
+            assert_eq!(nba_sat.0, !expected_empty, "NBA mismatch for {formula}");
+            assert_eq!(gnba_sat.0, !expected_empty, "GNBA mismatch for {formula}");
 
             let gnba = GNBA::new(&ltl);
             let nba = NBA::new(&ltl);
 
             assert_eq!(
-                check_emptyness_gnba(&gnba),
+                check_emptyness_gnba(&gnba).0,
                 expected_empty,
                 "GNBA emptiness mismatch for {formula}"
             );
             assert_eq!(
-                check_emptyness_nba(&nba),
+                check_emptyness_nba(&nba).0,
                 expected_empty,
                 "NBA emptiness mismatch for {formula}"
             );
