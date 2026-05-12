@@ -66,9 +66,8 @@ impl PetriNet {
             .map(|(i, place)| format!("{}:{}", place.id, state.tokens.get(i).copied().unwrap_or(0)))
             .collect::<Vec<String>>()
             .join(",");
-            
+
         format!("{{{}}}", places_string)
-            
     }
 
     pub fn to_pnml(&self) -> String {

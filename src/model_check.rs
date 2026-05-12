@@ -4,7 +4,10 @@ use crate::nba::NBA;
 use crate::petri_net::{PetriNet, PetriState};
 use std::collections::{HashMap, HashSet};
 
-pub fn model_check(petri_net: &PetriNet, ltl: &LTL) -> (bool, Option<Vec<CombinedState>>, Option<Vec<CombinedState>>) {
+pub fn model_check(
+    petri_net: &PetriNet,
+    ltl: &LTL,
+) -> (bool, Option<Vec<CombinedState>>, Option<Vec<CombinedState>>) {
     let negated_ltl = ltl.negate();
     let nba = NBA::new(&negated_ltl);
     let is_empty = check_emptyness_nba(&nba);
@@ -16,7 +19,11 @@ pub fn model_check(petri_net: &PetriNet, ltl: &LTL) -> (bool, Option<Vec<Combine
     }
 
     let has_counterexample = ndfs(petri_net, &nba);
-    (!has_counterexample.0, has_counterexample.1, has_counterexample.2)
+    (
+        !has_counterexample.0,
+        has_counterexample.1,
+        has_counterexample.2,
+    )
 }
 
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -183,7 +190,10 @@ fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool>
         .collect()
 }
 
-fn ndfs(petri: &PetriNet, nba: &NBA) -> (bool, Option<Vec<CombinedState>>, Option<Vec<CombinedState>>) {
+fn ndfs(
+    petri: &PetriNet,
+    nba: &NBA,
+) -> (bool, Option<Vec<CombinedState>>, Option<Vec<CombinedState>>) {
     let mut ctx = NDFSContext {
         petri,
         nba,

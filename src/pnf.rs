@@ -53,10 +53,7 @@ fn push_pnf_inwards(expr: &mut LTL) {
                 push_pnf_inwards(expr);
             }
             LTL::Implies(left, right) => {
-                *expr = LTL::And(
-                    left.clone(),
-                    Box::new(LTL::Not(right.clone())),
-                );
+                *expr = LTL::And(left.clone(), Box::new(LTL::Not(right.clone())));
                 push_pnf_inwards(expr);
             }
             LTL::And(left, right) => {

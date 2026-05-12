@@ -11,11 +11,11 @@ mod petri_net;
 mod philosophers;
 mod pnf;
 
+use crate::petri_net::PetriNet;
 use builder::PetriNetBuilder;
 use clap::{Parser, Subcommand};
 use colored::*;
 use std::process::Command;
-use crate::petri_net::PetriNet;
 
 use crate::philosophers::PhilosopherConfiguration;
 
@@ -204,7 +204,7 @@ fn main() {
                         );
                         let (result, counterexample_path, counterexample_cycle) =
                             model_check::model_check(petri_net, &formula);
-                        
+
                         summary.push((name, result));
 
                         if result {
@@ -314,7 +314,10 @@ fn main() {
             );
         }
 
-        Commands::Sat { ltl_file, show_counterexample } => {
+        Commands::Sat {
+            ltl_file,
+            show_counterexample,
+        } => {
             println!(
                 "{} LTL file: {}",
                 "[SAT]".bright_cyan().bold(),
@@ -325,7 +328,10 @@ fn main() {
                     for (name, formula) in formulas {
                         println!("{}", format!("[{}]", name).magenta().bold());
                         println!("  {} {}", "Formula:".blue(), formula);
-                        let ((nba_sat, stack_path_nba, stack_cycle_nba), (gnba_sat, stack_path_gnba, stack_cycle_gnba)) = emptyness::is_satisfiable(&formula);
+                        let (
+                            (nba_sat, stack_path_nba, stack_cycle_nba),
+                            (gnba_sat, stack_path_gnba, stack_cycle_gnba),
+                        ) = emptyness::is_satisfiable(&formula);
 
                         let sat_str = |val: bool| {
                             if val {

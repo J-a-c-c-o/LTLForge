@@ -2,12 +2,20 @@ use crate::gnba::GNBA;
 use crate::ltl_parser::LTL;
 use crate::nba::NBA;
 
-pub fn is_satisfiable(ltl: &LTL) -> ((bool, Option<Vec<usize>>, Option<Vec<usize>>), (bool, Option<Vec<usize>>, Option<Vec<usize>>)) {
+pub fn is_satisfiable(
+    ltl: &LTL,
+) -> (
+    (bool, Option<Vec<usize>>, Option<Vec<usize>>),
+    (bool, Option<Vec<usize>>, Option<Vec<usize>>),
+) {
     let gnba = GNBA::new(ltl);
     let nba = NBA::new(ltl);
     let nba_empty = check_emptyness_nba(&nba);
     let gnba_empty = check_emptyness_gnba(&gnba);
-    ((!nba_empty.0, nba_empty.1, nba_empty.2), (!gnba_empty.0, gnba_empty.1, gnba_empty.2))
+    (
+        (!nba_empty.0, nba_empty.1, nba_empty.2),
+        (!gnba_empty.0, gnba_empty.1, gnba_empty.2),
+    )
 }
 
 pub fn check_emptyness_nba(nba: &NBA) -> (bool, Option<Vec<usize>>, Option<Vec<usize>>) {

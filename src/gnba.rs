@@ -515,11 +515,16 @@ mod tests {
         assert_eq!(gnba.closure.len(), 4);
         assert!(gnba.states.len() <= 6);
         assert!(!gnba.states.is_empty());
-        assert!(gnba.initial_states.iter().all(|state_id| *state_id < gnba.states.len()));
-        assert!(gnba
-            .states
-            .iter()
-            .all(|state| gnba.successors(state.id).iter().all(|next| *next < gnba.states.len())));
+        assert!(
+            gnba.initial_states
+                .iter()
+                .all(|state_id| *state_id < gnba.states.len())
+        );
+        assert!(gnba.states.iter().all(|state| {
+            gnba.successors(state.id)
+                .iter()
+                .all(|next| *next < gnba.states.len())
+        }));
         assert_eq!(gnba.acceptance_conditions.len(), 1);
     }
 }
