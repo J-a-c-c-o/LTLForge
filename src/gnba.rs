@@ -34,7 +34,7 @@ impl GNBA {
         let pnf = to_pnf(ltl);
         let closure = compute_closure(&pnf);
         let states = generate_states(&closure);
-        let initial_states = find_initial_states(&states);
+        let initial_states = find_initial_states(&states, &pnf, &closure);
         let state_count = states.len();
         let mut acceptance_conditions = generate_acceptance_conditions(&states, &closure);
         if acceptance_conditions.is_empty() {
@@ -265,11 +265,10 @@ fn generate_states(closure: &[LTL]) -> Vec<State> {
 }
 
 /// Find the initial states (those containing the formula)
-fn find_initial_states(states: &[State]) -> Vec<usize> {
+fn find_initial_states(states: &[State], formula: &LTL, closure: &[LTL]) -> Vec<usize> {
     let mut initial_states = Vec::new();
     for state in states {
-        let len = state.formulas.len();
-        if state.formulas[len - 1] {
+        if let Some(true) = eval_in_state(state, closure, formula) {
             initial_states.push(state.id);
         }
     }

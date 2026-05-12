@@ -57,6 +57,20 @@ impl PetriNet {
         next_states
     }
 
+    pub fn get_state_string(&self, state: &PetriState) -> String {
+        // print id = tokens of each place in order, separated by commas
+        let places_string = self
+            .places
+            .iter()
+            .enumerate()
+            .map(|(i, place)| format!("{}:{}", place.id, state.tokens.get(i).copied().unwrap_or(0)))
+            .collect::<Vec<String>>()
+            .join(",");
+            
+        format!("{{{}}}", places_string)
+            
+    }
+
     pub fn to_pnml(&self) -> String {
         let mut pnml = String::new();
         pnml.push_str(&format!(

@@ -13,8 +13,9 @@ mod pnf;
 
 use builder::PetriNetBuilder;
 use clap::{Parser, Subcommand};
-use colored::*; // 1. Added colored import
+use colored::*;
 use std::process::Command;
+use crate::petri_net::PetriNet;
 
 use crate::philosophers::PhilosopherConfiguration;
 
@@ -187,13 +188,19 @@ fn main() {
 
             match ltl_parser::parse_mcc_file(&ltl_file) {
                 Ok(formulas) => {
+                    let mut summary = Vec::new();
                     for (name, formula) in formulas {
                         println!(
                             "{} \nChecking: {}",
                             format!("[{}]", name).magenta().bold(),
                             formula.to_string().italic()
                         );
-                        if model_check::model_check(petri_net, &formula) {
+                        let (result, counterexample_path, counterexample_cycle) =
+                            model_check::model_check(petri_net, &formula);
+                        
+                        summary.push((name, result));
+
+                        if result {
                             println!("{}", "Result: Property holds ✔".green().bold());
                         } else {
                             println!(
@@ -202,8 +209,28 @@ fn main() {
                                     .red()
                                     .bold()
                             );
+
+                            println!();
+                            println!("{}", "Counterexample path:".blue().bold());
+                            printstack(&counterexample_path, petri_net);
+
+                            println!();
+                            println!("{}", "Counterexample cycle:".blue().bold());
+                            printstack(&counterexample_cycle, petri_net);
                         }
                         println!();
+                    }
+                    println!("{}", "Summary:".yellow().bold());
+                    for (name, result) in summary {
+                        println!(
+                            "  - {}: {}",
+                            name,
+                            if result {
+                                "Holds ✔".green()
+                            } else {
+                                "Violated ✘".red()
+                            }
+                        );
                     }
                 }
                 Err(e) => eprintln!("{} {}", "Error parsing LTL file:".red().bold(), e),
@@ -386,6 +413,20 @@ fn process_automaton<FDot, FPrint>(
             }
         }
         Err(e) => eprintln!("{} {}", "Error:".red().bold(), e),
+    }
+}
+
+fn printstack(stack: &Option<Vec<model_check::CombinedState>>, pnml: &PetriNet) {
+    if let Some(states) = stack {
+        for state in states {
+            println!(
+                "  - Petri: {}, NBA state: {}",
+                pnml.get_state_string(&state.petri_state).yellow(),
+                state.nba_state.to_string().cyan()
+            );
+        }
+    } else {
+        println!("  (empty)");
     }
 }
 

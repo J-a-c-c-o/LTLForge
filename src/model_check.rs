@@ -4,7 +4,7 @@ use crate::nba::NBA;
 use crate::petri_net::{PetriNet, PetriState};
 use std::collections::HashSet;
 
-pub fn model_check(petri_net: &PetriNet, ltl: &LTL) -> bool {
+pub fn model_check(petri_net: &PetriNet, ltl: &LTL) -> (bool, Option<Vec<CombinedState>>, Option<Vec<CombinedState>>) {
     let negated_ltl = ltl.negate();
     let nba = NBA::new(&negated_ltl);
     let is_empty = check_emptyness_nba(&nba);
@@ -12,23 +12,17 @@ pub fn model_check(petri_net: &PetriNet, ltl: &LTL) -> bool {
         println!(
             "The language of the NBA is empty, which means the original LTL formula is valid on all traces of the Petri net."
         );
-        return true;
+        return (true, None, None);
     }
 
     let has_counterexample = ndfs(petri_net, &nba);
-    if has_counterexample {
-        println!("Counterexample found: the property does NOT hold on the Petri net.");
-        false
-    } else {
-        println!("No counterexample found in the product; the property holds.");
-        true
-    }
+    (!has_counterexample.0, has_counterexample.1, has_counterexample.2)
 }
 
 #[derive(Clone, Eq, PartialEq, Hash)]
-struct CombinedState {
-    petri_state: PetriState,
-    nba_state: usize,
+pub struct CombinedState {
+    pub petri_state: PetriState,
+    pub nba_state: usize,
 }
 
 struct NDFSContext<'a> {
@@ -38,8 +32,8 @@ struct NDFSContext<'a> {
     seed: Option<(CombinedState, usize)>,
 
     visited: HashSet<(CombinedState, usize)>,
-    stack: HashSet<CombinedState>,
-    stack2: HashSet<CombinedState>,
+    stack: Vec<CombinedState>,
+    stack2: Vec<CombinedState>,
 }
 
 impl<'a> NDFSContext<'a> {
@@ -165,14 +159,14 @@ fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool>
         .collect()
 }
 
-fn ndfs(petri: &PetriNet, nba: &NBA) -> bool {
+fn ndfs(petri: &PetriNet, nba: &NBA) -> (bool, Option<Vec<CombinedState>>, Option<Vec<CombinedState>>) {
     let mut ctx = NDFSContext {
         petri,
         nba,
         seed: None,
         visited: HashSet::new(),
-        stack: HashSet::new(),
-        stack2: HashSet::new(),
+        stack: Vec::new(),
+        stack2: Vec::new(),
     };
 
     let initial_marking = petri.initial_state();
@@ -186,19 +180,19 @@ fn ndfs(petri: &PetriNet, nba: &NBA) -> bool {
             };
 
             if dfs1(&mut ctx, init) {
-                return true;
+                return (true, Some(ctx.stack.clone()), Some(ctx.stack2.clone()));
             }
         }
     }
 
-    false
+    (false, None, None)
 }
 
 fn dfs1(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
     let mut call_stack = Vec::new();
 
     ctx.visited.insert((init_state.clone(), 0));
-    ctx.stack.insert(init_state.clone());
+    ctx.stack.push(init_state.clone());
     call_stack.push((init_state.clone(), ctx.successors(&init_state).into_iter()));
 
     while let Some((state, mut succs)) = call_stack.pop() {
@@ -207,7 +201,7 @@ fn dfs1(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
 
             if !ctx.visited.contains(&(succ.clone(), 0)) {
                 ctx.visited.insert((succ.clone(), 0));
-                ctx.stack.insert(succ.clone());
+                ctx.stack.push(succ.clone());
                 call_stack.push((succ.clone(), ctx.successors(&succ).into_iter()));
             }
         } else {
@@ -217,9 +211,11 @@ fn dfs1(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
                     return true;
                 }
             }
-            ctx.stack.remove(&state);
+            ctx.stack.pop();
         }
     }
+
+    ctx.stack.clear();
     false
 }
 
@@ -227,7 +223,7 @@ fn dfs2(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
     let mut call_stack = Vec::new();
 
     ctx.visited.insert((init_state.clone(), 1));
-    ctx.stack2.insert(init_state.clone());
+    ctx.stack2.push(init_state.clone());
     call_stack.push((init_state.clone(), ctx.successors(&init_state).into_iter()));
 
     while let Some((state, mut succs)) = call_stack.pop() {
@@ -239,12 +235,14 @@ fn dfs2(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
             }
             if !ctx.visited.contains(&(succ.clone(), 1)) {
                 ctx.visited.insert((succ.clone(), 1));
-                ctx.stack2.insert(succ.clone());
+                ctx.stack2.push(succ.clone());
                 call_stack.push((succ.clone(), ctx.successors(&succ).into_iter()));
             }
         } else {
-            ctx.stack2.remove(&state);
+            ctx.stack2.pop();
         }
     }
+
+    ctx.stack2.clear();
     false
 }
