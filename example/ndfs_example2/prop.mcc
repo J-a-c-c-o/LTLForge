@@ -1,0 +1,3 @@
+Property example_prop_00 "Generally Eventually p2 gets a token" is:
+A (F (1 <= (#tokens("landing"))))
+end.

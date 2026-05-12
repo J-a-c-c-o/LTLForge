@@ -1,0 +1,43 @@
+<pnml>
+    <net id="Custom Model">
+        <page id="DocumentDefaultPage">
+            <place id="ground">
+                <initialMarking>
+                    <text>1</text>
+				</initialMarking>
+            </place>
+            <place id="take_off">
+                <initialMarking>
+                    <text>0</text>
+				</initialMarking>
+            </place>
+            <place id="air">
+                <initialMarking>
+                    <text>0</text>
+				</initialMarking>
+            </place>
+            <place id="landing">
+                <initialMarking>
+                    <text>0</text>
+				</initialMarking>
+            </place>
+
+            <transition id="ground_take_off"/>
+            <transition id="take_off_air"/>
+            <transition id="air_air"/>
+            <transition id="air_landing"/>
+            <transition id="landing_ground"/>
+
+            <arc source="ground" target="ground_take_off"/>
+            <arc source="ground_take_off" target="take_off"/>
+            <arc source="take_off" target="take_off_air"/>
+            <arc source="take_off_air" target="air"/>
+            <arc source="air" target="air_air"/>
+            <arc source="air_air" target="air"/>
+            <arc source="air" target="air_landing"/>
+            <arc source="air_landing" target="landing"/>
+            <arc source="landing" target="landing_ground"/>
+            <arc source="landing_ground" target="ground"/>
+        </page>
+    </net>
+</pnml> 
