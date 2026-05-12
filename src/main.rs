@@ -418,9 +418,10 @@ fn process_automaton<FDot, FPrint>(
 
 fn printstack(stack: &Option<Vec<model_check::CombinedState>>, pnml: &PetriNet) {
     if let Some(states) = stack {
-        for state in states {
+        for (idx, state) in states.iter().enumerate() {
             println!(
-                "  - Petri: {}, NBA state: {}",
+                "  {}: Petri: {}\n     NBA state: {}\n",
+                idx,
                 pnml.get_state_string(&state.petri_state).yellow(),
                 state.nba_state.to_string().cyan()
             );
