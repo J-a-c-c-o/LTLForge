@@ -78,6 +78,9 @@ enum Commands {
     Sat {
         /// LTL specification file
         ltl_file: String,
+        /// Show counterexample paths and cycles if property is satisfiable
+        #[arg(long, short)]
+        show_counterexample: bool,
     },
     /// Runs the Philosophers problem
     Philosophers {
@@ -311,7 +314,7 @@ fn main() {
             );
         }
 
-        Commands::Sat { ltl_file } => {
+        Commands::Sat { ltl_file, show_counterexample } => {
             println!(
                 "{} LTL file: {}",
                 "[SAT]".bright_cyan().bold(),
@@ -322,7 +325,7 @@ fn main() {
                     for (name, formula) in formulas {
                         println!("{}", format!("[{}]", name).magenta().bold());
                         println!("  {} {}", "Formula:".blue(), formula);
-                        let ((nba_sat, _, _), (gnba_sat, _, _)) = emptyness::is_satisfiable(&formula);
+                        let ((nba_sat, stack_path_nba, stack_cycle_nba), (gnba_sat, stack_path_gnba, stack_cycle_gnba)) = emptyness::is_satisfiable(&formula);
 
                         let sat_str = |val: bool| {
                             if val {
@@ -332,7 +335,20 @@ fn main() {
                             }
                         };
                         println!("  NBA:  {}", sat_str(nba_sat));
+                        if show_counterexample && nba_sat {
+                            println!("  Counterexample path (NBA):");
+                            printsimplestack(&stack_path_nba);
+                            println!("  Counterexample cycle (NBA):");
+                            printsimplestack(&stack_cycle_nba);
+                            println!();
+                        }
                         println!("  GNBA: {}", sat_str(gnba_sat));
+                        if show_counterexample && gnba_sat {
+                            println!("  Counterexample path (GNBA):");
+                            printsimplestack(&stack_path_gnba);
+                            println!("  Counterexample cycle (GNBA):");
+                            printsimplestack(&stack_cycle_gnba);
+                        }
                         println!();
                     }
                 }
@@ -431,6 +447,16 @@ fn printstack(stack: &Option<Vec<model_check::CombinedState>>, pnml: &PetriNet) 
                 pnml.get_state_string(&state.petri_state).yellow(),
                 state.nba_state.to_string().cyan()
             );
+        }
+    } else {
+        println!("  (empty)");
+    }
+}
+
+fn printsimplestack(stack: &Option<Vec<usize>>) {
+    if let Some(states) = stack {
+        for (idx, state) in states.iter().enumerate() {
+            println!("  {}: State {}", idx, state.to_string().yellow());
         }
     } else {
         println!("  (empty)");
