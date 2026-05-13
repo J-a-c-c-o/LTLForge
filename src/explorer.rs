@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::collections::VecDeque;
 
 use crate::petri_net::{PetriNet, PetriState};
@@ -9,14 +9,14 @@ pub struct ReachabilityStats {
 }
 
 struct StateInterner {
-    by_state: HashMap<PetriState, u32>,
+    by_state: FxHashMap<PetriState, u32>,
     states: Vec<PetriState>,
 }
 
 impl StateInterner {
     fn new() -> Self {
         Self {
-            by_state: HashMap::new(),
+            by_state: FxHashMap::default(),
             states: Vec::new(),
         }
     }

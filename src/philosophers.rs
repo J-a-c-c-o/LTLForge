@@ -1,7 +1,8 @@
 use crate::builder::PetriNetBuilder;
 use crate::petri_net::PetriNet;
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
+use rustc_hash::FxHashSet;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 enum Stage {
@@ -95,13 +96,13 @@ type ReachableState = (Vec<Philosopher>, Vec<bool>);
 pub fn compute_reachable_states_and_deadlocks(
     n: usize,
     configurations: Vec<PhilosopherConfiguration>,
-) -> (HashSet<ReachableState>, HashSet<ReachableState>) {
+) -> (FxHashSet<ReachableState>, FxHashSet<ReachableState>) {
     let philosophers: Vec<Philosopher> = (0..n)
         .map(|i| Philosopher::new(i, n, configurations[i].clone()))
         .collect();
     let forks = vec![false; n];
-    let mut states = HashSet::new();
-    let mut deadlocks = HashSet::new();
+    let mut states = FxHashSet::default();
+    let mut deadlocks = FxHashSet::default();
     let mut queue = VecDeque::new();
 
     queue.push_back((philosophers.clone(), forks.clone()));

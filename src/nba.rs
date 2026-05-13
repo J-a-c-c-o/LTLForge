@@ -1,6 +1,7 @@
 use crate::gnba::GNBA;
 use crate::ltl_parser::LTL;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::VecDeque;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 pub struct NBA {
     pub closure: Vec<LTL>,
@@ -9,7 +10,7 @@ pub struct NBA {
     pub initial_states: Vec<usize>,
     pub acceptance_condition: AcceptanceCondition,
     new_to_gnba: Vec<(usize, usize, usize)>,
-    gnba_to_new: std::collections::HashMap<(usize, usize), usize>,
+    gnba_to_new: FxHashMap<(usize, usize), usize>,
     gnba: GNBA,
 }
 
@@ -36,7 +37,7 @@ impl NBA {
         // Create x copies of each accepting state, where x is the number of acceptance conditions
         let mut states = Vec::new();
         let mut new_to_gnba = Vec::new();
-        let mut gnba_to_new = HashMap::new();
+        let mut gnba_to_new = FxHashMap::default();
         let mut new_state_id = 0;
         let closure = gnba.closure.clone();
 
@@ -152,7 +153,7 @@ impl NBA {
 
         let forward_reachable = self.compute_forward_reachable();
         let backward_reachable = self.compute_backward_reachable();
-        let useful_states: HashSet<usize> = forward_reachable
+        let useful_states: FxHashSet<usize> = forward_reachable
             .intersection(&backward_reachable)
             .copied()
             .collect();
@@ -162,10 +163,10 @@ impl NBA {
             return;
         }
 
-        let mut id_map = HashMap::new();
+        let mut id_map = FxHashMap::default();
         let mut states = Vec::with_capacity(useful_states.len());
         let mut new_to_gnba = Vec::with_capacity(useful_states.len());
-        let mut gnba_to_new = HashMap::with_capacity(useful_states.len());
+        let mut gnba_to_new = FxHashMap::default();
 
         for (old_id, state) in self.states.iter().enumerate() {
             if useful_states.contains(&old_id) {
@@ -201,8 +202,8 @@ impl NBA {
         self.transitions = self.generate_transitions();
     }
 
-    fn compute_forward_reachable(&self) -> HashSet<usize> {
-        let mut reachable = HashSet::new();
+    fn compute_forward_reachable(&self) -> FxHashSet<usize> {
+        let mut reachable = FxHashSet::default();
         let mut queue = VecDeque::new();
 
         for &initial_state in &self.initial_states {
@@ -222,15 +223,15 @@ impl NBA {
         reachable
     }
 
-    fn compute_backward_reachable(&self) -> HashSet<usize> {
-        let mut predecessors: HashMap<usize, Vec<usize>> = HashMap::new();
+    fn compute_backward_reachable(&self) -> FxHashSet<usize> {
+        let mut predecessors: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
         for state in &self.states {
             for successor in self.raw_successors(state.id) {
                 predecessors.entry(successor).or_default().push(state.id);
             }
         }
 
-        let mut reachable = HashSet::new();
+        let mut reachable = FxHashSet::default();
         let mut queue = VecDeque::new();
 
         for &state_id in &self.acceptance_condition.states {

@@ -1,16 +1,16 @@
-use std::collections::HashSet;
+use rustc_hash::FxHashSet;
 
 use crate::ltl_parser::LTL;
 
 pub fn compute_closure(ltl: &LTL) -> Vec<LTL> {
     let mut closure = Vec::new();
-    let mut visited = HashSet::new();
+    let mut visited = FxHashSet::default();
     compute_closure_helper(ltl, &mut closure, &mut visited);
     sort_closure(&mut closure);
     closure
 }
 
-fn compute_closure_helper(ltl: &LTL, closure: &mut Vec<LTL>, visited: &mut HashSet<LTL>) {
+fn compute_closure_helper(ltl: &LTL, closure: &mut Vec<LTL>, visited: &mut FxHashSet<LTL>) {
     let non_negated = remove_negate(ltl);
 
     if !visited.insert(non_negated.clone()) {

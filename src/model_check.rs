@@ -2,7 +2,7 @@ use crate::emptyness::check_emptyness_nba;
 use crate::ltl_parser::LTL;
 use crate::nba::NBA;
 use crate::petri_net::{PetriNet, PetriState};
-use std::collections::{HashMap, HashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 
 pub fn model_check(
     petri_net: &PetriNet,
@@ -36,12 +36,12 @@ struct NDFSContext<'a> {
     petri: &'a PetriNet,
     nba: &'a NBA,
 
-    petri_successor_cache: HashMap<PetriState, Vec<PetriState>>,
-    label_cache: HashMap<PetriState, Vec<bool>>,
+    petri_successor_cache: FxHashMap<PetriState, Vec<PetriState>>,
+    label_cache: FxHashMap<PetriState, Vec<bool>>,
 
     seed: Option<(CombinedState, usize)>,
 
-    visited: HashSet<(CombinedState, usize)>,
+    visited: FxHashSet<(CombinedState, usize)>,
     stack: Vec<CombinedState>,
     stack2: Vec<CombinedState>,
 }
@@ -197,10 +197,10 @@ fn ndfs(
     let mut ctx = NDFSContext {
         petri,
         nba,
-        petri_successor_cache: HashMap::new(),
-        label_cache: HashMap::new(),
+        petri_successor_cache: FxHashMap::default(),
+        label_cache: FxHashMap::default(),
         seed: None,
-        visited: HashSet::new(),
+        visited: FxHashSet::default(),
         stack: Vec::new(),
         stack2: Vec::new(),
     };

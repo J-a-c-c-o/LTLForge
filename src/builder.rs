@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 use roxmltree::Document;
 
@@ -71,9 +71,9 @@ impl PetriNetBuilder {
             initial_tokens: Vec::new(),
         };
 
-        let mut place_indices: HashMap<String, u32> = HashMap::with_capacity(self.nodes.len());
-        let mut transition_indices: HashMap<String, u32> =
-            HashMap::with_capacity(self.transition.len());
+        let mut place_indices: FxHashMap<String, u32> = FxHashMap::default();
+        let mut transition_indices: FxHashMap<String, u32> =
+            FxHashMap::default();
 
         for (index, node_builder) in self.nodes.into_iter().enumerate() {
             place_indices.insert(node_builder.id.clone(), index as u32);

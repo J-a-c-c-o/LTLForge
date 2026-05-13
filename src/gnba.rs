@@ -2,7 +2,8 @@ use crate::closure::compute_closure;
 use crate::consistency::is_consistent;
 use crate::ltl_parser::LTL;
 use crate::pnf::to_pnf;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::VecDeque;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 pub struct GNBA {
     pub closure: Vec<LTL>,
@@ -87,7 +88,7 @@ impl GNBA {
 
         let forward_reachable = self.compute_forward_reachable();
         let backward_reachable = self.compute_backward_reachable();
-        let useful_states: HashSet<usize> = forward_reachable
+        let useful_states: FxHashSet<usize> = forward_reachable
             .intersection(&backward_reachable)
             .copied()
             .collect();
@@ -97,7 +98,7 @@ impl GNBA {
             return;
         }
 
-        let mut id_map = HashMap::new();
+        let mut id_map = FxHashMap::default();
         let mut states = Vec::with_capacity(useful_states.len());
 
         for state in &self.states {
@@ -129,8 +130,8 @@ impl GNBA {
         self.transitions = self.generate_transitions();
     }
 
-    fn compute_forward_reachable(&self) -> HashSet<usize> {
-        let mut reachable = HashSet::new();
+    fn compute_forward_reachable(&self) -> FxHashSet<usize> {
+        let mut reachable = FxHashSet::default();
         let mut queue = VecDeque::new();
 
         for &initial_state in &self.initial_states {
@@ -150,15 +151,15 @@ impl GNBA {
         reachable
     }
 
-    fn compute_backward_reachable(&self) -> HashSet<usize> {
-        let mut predecessors: HashMap<usize, Vec<usize>> = HashMap::new();
+    fn compute_backward_reachable(&self) -> FxHashSet<usize> {
+        let mut predecessors: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
         for state in &self.states {
             for successor in self.raw_successors(state.id) {
                 predecessors.entry(successor).or_default().push(state.id);
             }
         }
 
-        let mut reachable = HashSet::new();
+        let mut reachable = FxHashSet::default();
         let mut queue = VecDeque::new();
 
         for condition in &self.acceptance_conditions {

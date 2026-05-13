@@ -2,6 +2,8 @@ use crate::gnba::GNBA;
 use crate::ltl_parser::LTL;
 use crate::nba::NBA;
 
+use rustc_hash::FxHashSet;
+
 pub fn is_satisfiable(
     ltl: &LTL,
 ) -> (
@@ -20,7 +22,7 @@ pub fn is_satisfiable(
 
 pub fn check_emptyness_nba(nba: &NBA) -> (bool, Option<Vec<usize>>, Option<Vec<usize>>) {
     for initial_state in &nba.initial_states {
-        let visited = std::collections::HashSet::new();
+        let visited = FxHashSet::default();
         let stack = Vec::new();
         let stack2 = Vec::new();
         let mut ctx = NDFSContextNBA {
@@ -39,7 +41,7 @@ pub fn check_emptyness_nba(nba: &NBA) -> (bool, Option<Vec<usize>>, Option<Vec<u
 
 pub fn check_emptyness_gnba(gnba: &GNBA) -> (bool, Option<Vec<usize>>, Option<Vec<usize>>) {
     for initial_state in &gnba.initial_states {
-        let visited = std::collections::HashSet::new();
+        let visited = FxHashSet::default();
         let stack = Vec::new();
         let stack2 = Vec::new();
         let mut ctx = NDFSContextGNBA {
@@ -58,7 +60,7 @@ pub fn check_emptyness_gnba(gnba: &GNBA) -> (bool, Option<Vec<usize>>, Option<Ve
 
 struct NDFSContextNBA<'a> {
     nba: &'a NBA,
-    visited: std::collections::HashSet<(usize, usize)>,
+    visited: FxHashSet<(usize, usize)>,
     stack: Vec<usize>,
     stack2: Vec<usize>,
     seed: Option<(usize, usize)>,
@@ -104,7 +106,7 @@ fn dfs2_nba(ctx: &mut NDFSContextNBA, state: usize) -> bool {
 
 struct NDFSContextGNBA<'a> {
     gnba: &'a GNBA,
-    visited: std::collections::HashSet<(usize, usize)>,
+    visited: FxHashSet<(usize, usize)>,
     stack: Vec<usize>,
     stack2: Vec<usize>,
     seed: Option<(usize, usize)>,
