@@ -70,26 +70,6 @@ fn push_pnf_inwards(expr: &mut LTL) {
                 );
                 push_pnf_inwards(expr);
             }
-            LTL::GreaterEqual(left, right) => {
-                *expr = LTL::Less(left.clone(), right.clone());
-                push_pnf_inwards(expr);
-            }
-            LTL::LessEqual(left, right) => {
-                *expr = LTL::Greater(left.clone(), right.clone());
-                push_pnf_inwards(expr);
-            }
-            LTL::Greater(left, right) => {
-                *expr = LTL::LessEqual(left.clone(), right.clone());
-                push_pnf_inwards(expr);
-            }
-            LTL::Less(left, right) => {
-                *expr = LTL::GreaterEqual(left.clone(), right.clone());
-                push_pnf_inwards(expr);
-            }
-            LTL::Not(inner) => {
-                *expr = *inner.clone();
-                push_pnf_inwards(expr);
-            }
             LTL::True => {
                 *expr = LTL::False;
             }
