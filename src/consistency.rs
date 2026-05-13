@@ -165,14 +165,12 @@ mod tests {
 
     #[test]
     fn test_and_consistency() {
-        // closure: a, b, (a & b)
         let a = LTL::Var("a".to_string());
         let b = LTL::Var("b".to_string());
         let and = LTL::And(Box::new(a.clone()), Box::new(b.clone()));
         let closure = vec![a.clone(), b.clone(), and.clone()];
 
         let sets = is_consistent(&closure);
-        // expected: (a,b,and) where and == a & b -> 4 consistent sets
         let expected = vec![
             vec![false, false, false],
             vec![false, true, false],
@@ -196,7 +194,6 @@ mod tests {
 
         let sets = is_consistent(&closure);
 
-        // implication truth table: imp == (!a) || b
         let expected = vec![
             vec![false, false, true],
             vec![false, true, true],
@@ -212,7 +209,6 @@ mod tests {
 
     #[test]
     fn test_until_local_rule() {
-        // a U (¬a & b) closure components
         let a = LTL::Var("a".to_string());
         let not_a = LTL::Not(Box::new(a.clone()));
         let b = LTL::Var("b".to_string());

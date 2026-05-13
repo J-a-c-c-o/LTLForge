@@ -414,4 +414,74 @@ impl NBA {
         s.push_str("}\n");
         s
     }
+
+    pub fn to_hoa(&self) -> String {
+        let mut hoa = String::new();
+
+        let ap_formulas: Vec<&LTL> = self.closure.iter().filter(|f| match f {
+            LTL::Var(_)
+            | LTL::True
+            | LTL::False
+            | LTL::TokenCount(_)
+            | LTL::Fireable(_)
+            | LTL::LessEqual(_, _)
+            | LTL::GreaterEqual(_, _)
+            | LTL::Greater(_, _)
+            | LTL::Less(_, _) => true,
+            _ => false,
+        }).collect();
+
+        hoa.push_str("HOA: v1\n");
+        hoa.push_str(&format!("States: {}\n", self.states.len()));
+
+        for &start_id in &self.initial_states {
+            hoa.push_str(&format!("Start: {}\n", start_id));
+        }
+
+        hoa.push_str(&format!("AP: {} ", ap_formulas.len()));
+        for f in &ap_formulas {
+            // Format formula and escape quotes for HOA compatibility
+            let name = format!("{}", f).replace('"', "\\\"");
+            hoa.push_str(&format!("\"{}\" ", name));
+        }
+        hoa.push_str("\n");
+
+
+        hoa.push_str("Acceptance: 1 Inf(0)\n");
+        
+        hoa.push_str("properties: trans-labels explicit-labels state-acc\n");
+        hoa.push_str("--BODY--\n");
+
+        for state in &self.states {
+            let acc_str = if self.acceptance_condition.states.contains(&state.id) {
+                " {0}"
+            } else {
+                ""
+            };
+
+            hoa.push_str(&format!("State: {}{}\n", state.id, acc_str));
+
+            for trans in self.transitions.iter().filter(|t| t.from == state.id) {
+                let mut label_parts = Vec::new();
+                for (i, &val) in trans.label.iter().enumerate() {
+                    if val {
+                        label_parts.push(format!("{}", i));
+                    } else {
+                        label_parts.push(format!("!{}", i));
+                    }
+                }
+
+                let label_str = if label_parts.is_empty() {
+                    "[t]".to_string()
+                } else {
+                    format!("[{}]", label_parts.join(" & "))
+                };
+
+                hoa.push_str(&format!("  {} {}\n", label_str, trans.to));
+            }
+        }
+
+        hoa.push_str("--END--\n");
+        hoa
+    }
 }

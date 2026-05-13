@@ -329,6 +329,96 @@ impl GNBA {
         s.push_str("}\n");
         s
     }
+
+
+    pub fn to_hoa(&self) -> String {
+        let mut hoa = String::new();
+
+        let ap_formulas: Vec<&LTL> = self.closure.iter().filter(|f| match f {
+            LTL::Var(_)
+            | LTL::True
+            | LTL::False
+            | LTL::TokenCount(_)
+            | LTL::Fireable(_)
+            | LTL::LessEqual(_, _)
+            | LTL::GreaterEqual(_, _)
+            | LTL::Greater(_, _)
+            | LTL::Less(_, _) => true,
+            _ => false,
+        }).collect();
+
+        hoa.push_str("HOA: v1\n");
+        hoa.push_str(&format!("States: {}\n", self.states.len()));
+
+        for &start_id in &self.initial_states {
+            hoa.push_str(&format!("Start: {}\n", start_id));
+        }
+
+        hoa.push_str(&format!("AP: {} ", ap_formulas.len()));
+        for f in &ap_formulas {
+            let name = format!("{}", f).replace('"', "\\\"");
+            hoa.push_str(&format!("\"{}\" ", name));
+        }
+        hoa.push_str("\n");
+
+        let acc_count = self.acceptance_conditions.len();
+        if acc_count == 0 {
+            hoa.push_str("Acceptance: 1 Inf(0)\n");
+        } else {
+            let mut acc_expr = String::new();
+            for i in 0..acc_count {
+                if i > 0 { acc_expr.push_str(" & "); }
+                acc_expr.push_str(&format!("Inf({})", i));
+            }
+            hoa.push_str(&format!("Acceptance: {} {}\n", acc_count, acc_expr));
+        }
+
+        hoa.push_str("properties: trans-labels explicit-labels state-acc\n");
+        hoa.push_str("--BODY--\n");
+
+        for state in &self.states {
+            let mut acc_sets = Vec::new();
+            if self.acceptance_conditions.is_empty() {
+                acc_sets.push("0".to_string());
+            } else {
+                for (i, cond) in self.acceptance_conditions.iter().enumerate() {
+                    if cond.states.contains(&state.id) {
+                        acc_sets.push(i.to_string());
+                    }
+                }
+            }
+
+            let acc_str = if acc_sets.is_empty() {
+                String::new()
+            } else {
+                format!(" {{{}}}", acc_sets.join(" "))
+            };
+
+            hoa.push_str(&format!("State: {}{}\n", state.id, acc_str));
+
+            for trans in self.transitions.iter().filter(|t| t.from == state.id) {
+                let mut label_parts = Vec::new();
+                for (i, &val) in trans.label.iter().enumerate() {
+                    if val {
+                        label_parts.push(format!("{}", i));
+                    } else {
+                        label_parts.push(format!("!{}", i));
+                    }
+                }
+                
+                let label_str = if label_parts.is_empty() {
+                    "[t]".to_string()
+                } else {
+                    format!("[{}]", label_parts.join(" & "))
+                };
+
+                hoa.push_str(&format!("  {} {}\n", label_str, trans.to));
+            }
+        }
+
+        hoa.push_str("--END--\n");
+        hoa
+    }
 }
 
 /// closure + state to vector of LTL

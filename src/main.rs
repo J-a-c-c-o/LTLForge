@@ -51,7 +51,8 @@ enum Commands {
     Gnba {
         /// LTL specification file
         ltl_file: String,
-        /// Output Graphviz DOT
+        #[arg(long)]
+        hoa: bool,
         #[arg(long)]
         dot: bool,
         #[arg(long)]
@@ -65,6 +66,8 @@ enum Commands {
     Nba {
         /// LTL specification file
         ltl_file: String,
+        #[arg(long)]
+        hoa: bool,
         #[arg(long)]
         dot: bool,
         #[arg(long)]
@@ -268,6 +271,7 @@ fn main() {
 
         Commands::Gnba {
             ltl_file,
+            hoa,
             dot,
             png,
             view,
@@ -281,10 +285,12 @@ fn main() {
             process_automaton(
                 "GNBA",
                 ltl_file,
+                hoa,
                 dot,
                 png,
                 view,
                 viewer,
+                |f| gnba::GNBA::new(f).to_hoa(),
                 |f| gnba::GNBA::new(f).to_dot(),
                 |f| gnba::GNBA::new(f).pretty_print(),
             );
@@ -292,6 +298,7 @@ fn main() {
 
         Commands::Nba {
             ltl_file,
+            hoa,
             dot,
             png,
             view,
@@ -305,10 +312,12 @@ fn main() {
             process_automaton(
                 "NBA",
                 ltl_file,
+                hoa,
                 dot,
                 png,
                 view,
                 viewer,
+                |f| nba::NBA::new(f).to_hoa(),
                 |f| nba::NBA::new(f).to_dot(),
                 |f| nba::NBA::new(f).pretty_print(),
             );
@@ -387,16 +396,19 @@ fn main() {
     }
 }
 
-fn process_automaton<FDot, FPrint>(
+fn process_automaton<FHoa, FDot, FPrint>(
     label: &str,
     ltl_file: String,
+    hoa: bool,
     dot: bool,
     png: bool,
     view: bool,
     viewer: Option<String>,
+    to_hoa: FHoa,
     to_dot: FDot,
     pretty_print: FPrint,
 ) where
+    FHoa: Fn(&ltl_parser::LTL) -> String,
     FDot: Fn(&ltl_parser::LTL) -> String,
     FPrint: Fn(&ltl_parser::LTL),
 {
@@ -404,7 +416,13 @@ fn process_automaton<FDot, FPrint>(
         Ok(formulas) => {
             for (name, formula) in formulas {
                 println!("{}", format!("[{}]", name).magenta().bold());
-                if dot || png || view || viewer.is_some() {
+                if hoa {
+                    let hoa_str = to_hoa(&formula);
+                    let filename = format!("output/{}_{}.hoa", name, label.to_lowercase());
+                    std::fs::create_dir_all("output").ok();
+                    std::fs::write(&filename, hoa_str).ok();
+                    println!("  {} {}", "Wrote HOA:".blue(), filename.underline());
+                } else if dot || png || view || viewer.is_some() {
                     let dot_str = to_dot(&formula);
                     let filename = format!("output/{}_{}.dot", name, label.to_lowercase());
                     std::fs::create_dir_all("output").ok();
