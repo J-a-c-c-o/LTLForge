@@ -23,7 +23,6 @@ fn compute_closure_helper(ltl: &LTL, closure: &mut Vec<LTL>, visited: &mut FxHas
         LTL::Not(inner) => compute_closure_helper(inner, closure, visited),
         LTL::And(left, right)
         | LTL::Or(left, right)
-        | LTL::Implies(left, right)
         | LTL::Until(left, right)
         | LTL::Release(left, right)
         | LTL::WeakUntil(left, right)

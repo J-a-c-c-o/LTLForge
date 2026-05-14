@@ -52,10 +52,6 @@ fn push_pnf_inwards(expr: &mut LTL) {
                 );
                 push_pnf_inwards(expr);
             }
-            LTL::Implies(left, right) => {
-                *expr = LTL::And(left.clone(), Box::new(LTL::Not(right.clone())));
-                push_pnf_inwards(expr);
-            }
             LTL::And(left, right) => {
                 *expr = LTL::Or(
                     Box::new(LTL::Not(left.clone())),
@@ -84,7 +80,6 @@ fn push_pnf_inwards(expr: &mut LTL) {
         | LTL::Or(left, right)
         | LTL::Until(left, right)
         | LTL::Release(left, right)
-        | LTL::Implies(left, right)
         | LTL::WeakUntil(left, right)
         | LTL::MightyRelease(left, right)
         | LTL::LessEqual(left, right)
@@ -136,7 +131,6 @@ fn pnf_eliminate_temporal_operators(expr: &mut LTL) {
         | LTL::Or(left, right)
         | LTL::Until(left, right)
         | LTL::Release(left, right)
-        | LTL::Implies(left, right)
         | LTL::LessEqual(left, right)
         | LTL::GreaterEqual(left, right)
         | LTL::Greater(left, right)
@@ -159,6 +153,9 @@ fn pnf_simplifications(expr: &mut LTL) {
             if let LTL::Globally(inner_inner) = &**inner {
                 *expr = LTL::Globally(inner_inner.clone());
                 pnf_simplifications(expr);
+            } else if let LTL::Next(inner_inner) = &**inner {
+                *expr = LTL::Next(Box::new(LTL::Globally(inner_inner.clone())));
+                pnf_simplifications(expr);
             } else {
                 pnf_simplifications(inner);
             }
@@ -166,6 +163,9 @@ fn pnf_simplifications(expr: &mut LTL) {
         LTL::Eventually(inner) => {
             if let LTL::Eventually(inner_inner) = &**inner {
                 *expr = LTL::Eventually(inner_inner.clone());
+                pnf_simplifications(expr);
+            } else if let LTL::Next(inner_inner) = &**inner {
+                *expr = LTL::Next(Box::new(LTL::Eventually(inner_inner.clone())));
                 pnf_simplifications(expr);
             } else {
                 pnf_simplifications(inner);
@@ -218,22 +218,6 @@ fn pnf_simplifications(expr: &mut LTL) {
                 *expr = LTL::True;
             } else if let LTL::True = **right {
                 *expr = LTL::True;
-            } else {
-                pnf_simplifications(left);
-                pnf_simplifications(right);
-            }
-        }
-        LTL::Implies(left, right) => {
-            if let LTL::False = **left {
-                *expr = LTL::True;
-            } else if let LTL::True = **left {
-                *expr = *right.clone();
-                pnf_simplifications(expr);
-            } else if let LTL::True = **right {
-                *expr = LTL::True;
-            } else if let LTL::False = **right {
-                *expr = LTL::Not(Box::new(*left.clone()));
-                pnf_simplifications(expr);
             } else {
                 pnf_simplifications(left);
                 pnf_simplifications(right);

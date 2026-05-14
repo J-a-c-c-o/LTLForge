@@ -74,20 +74,6 @@ fn is_consistent_with_partial(formula: &LTL, partial_truth: &[bool], closure: &[
                 }
             }
         }
-        LTL::Implies(left, right) => {
-            let left_assigned = get_assigned_truth(left.as_ref(), partial_truth, closure);
-            let right_assigned = get_assigned_truth(right.as_ref(), partial_truth, closure);
-
-            if value {
-                if matches!(left_assigned, Some(true)) && matches!(right_assigned, Some(false)) {
-                    return false;
-                }
-            } else {
-                if matches!(left_assigned, Some(false)) || matches!(right_assigned, Some(true)) {
-                    return false;
-                }
-            }
-        }
         LTL::Next(_) => {
             // Next refers to the next state; no local constraint enforced here
         }
@@ -189,7 +175,7 @@ mod tests {
         // closure: a, b, (a -> b)
         let a = LTL::Var("a".to_string());
         let b = LTL::Var("b".to_string());
-        let imp = LTL::Implies(Box::new(a.clone()), Box::new(b.clone()));
+        let imp = LTL::Or(Box::new(LTL::Not(Box::new(a.clone()))), Box::new(b.clone()));
         let closure = vec![a.clone(), b.clone(), imp.clone()];
 
         let sets = is_consistent(&closure);

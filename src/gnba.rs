@@ -584,22 +584,11 @@ mod tests {
             return;
         }
 
-        let test_formulas = vec![
-            LTL::Eventually(Box::new(LTL::Var("a".to_string()))),
-            LTL::Globally(Box::new(LTL::Var("a".to_string()))),
-            LTL::Until(
-                Box::new(LTL::Var("a".to_string())),
-                Box::new(LTL::Var("b".to_string())),
-            ),
-            LTL::And(
-                Box::new(LTL::Eventually(Box::new(LTL::Var("a".to_string())))),
-                Box::new(LTL::Globally(Box::new(LTL::Var("b".to_string())))),
-            ),
-            LTL::Or(
-                Box::new(LTL::Var("a".to_string())),
-                Box::new(LTL::Eventually(Box::new(LTL::Var("b".to_string())))),
-            ),
-        ];
+        let mut test_formulas = Vec::new();
+        for _ in 0..100 {
+            let formula = random_ltl(2);
+            test_formulas.push(formula);
+        }
 
         for (i, formula) in test_formulas.iter().enumerate() {
             let gnba = GNBA::new(formula);
@@ -656,13 +645,12 @@ mod tests {
             LTL::True => "1".to_string(),
             LTL::False => "0".to_string(),
             LTL::Var(name) => name.clone(),
-            LTL::Not(inner) => format!("!({})", formula_to_spot_ltl(inner)),
+            LTL::Not(inner) => format!("(!({}))", formula_to_spot_ltl(inner)),
             LTL::And(left, right) => format!("({} & {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
             LTL::Or(left, right) => format!("({} | {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
-            LTL::Implies(left, right) => format!("({} -> {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
-            LTL::Next(inner) => format!("X ({})", formula_to_spot_ltl(inner)),
-            LTL::Eventually(inner) => format!("F ({})", formula_to_spot_ltl(inner)),
-            LTL::Globally(inner) => format!("G ({})", formula_to_spot_ltl(inner)),
+            LTL::Next(inner) => format!("(X ({}))", formula_to_spot_ltl(inner)),
+            LTL::Eventually(inner) => format!("(F ({}))", formula_to_spot_ltl(inner)),
+            LTL::Globally(inner) => format!("(G ({}))", formula_to_spot_ltl(inner)),
             LTL::Until(left, right) => format!("({} U {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
             LTL::Release(left, right) => format!("({} R {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
             LTL::WeakUntil(left, right) => format!("({} W {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
@@ -670,6 +658,28 @@ mod tests {
                 "1".to_string()
             }
             _ => "1".to_string(),
+        }
+    }
+
+
+    fn random_ltl(depth: usize) -> LTL {
+        if depth == 0 {
+            let var_name = format!("p{}", rand::random_range(0..10));
+            return LTL::Var(var_name);
+        }
+
+        let choice = rand::random_range(0..10);
+        match choice {
+            0 => LTL::Not(Box::new(random_ltl(depth - 1))),
+            1 => LTL::And(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
+            2 => LTL::Or(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
+            3 => LTL::Or(Box::new(LTL::Not(Box::new(random_ltl(depth - 1)))), Box::new(random_ltl(depth - 1))),
+            4 => LTL::Next(Box::new(random_ltl(depth - 1))),
+            5 => LTL::Eventually(Box::new(random_ltl(depth - 1))),
+            6 => LTL::Globally(Box::new(random_ltl(depth - 1))),
+            7 => LTL::Until(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
+            8 => LTL::Release(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
+            _ => LTL::WeakUntil(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
         }
     }
 }

@@ -17,7 +17,6 @@ pub enum LTL {
     Not(Box<LTL>),
     And(Box<LTL>, Box<LTL>),
     Or(Box<LTL>, Box<LTL>),
-    Implies(Box<LTL>, Box<LTL>),
     LessEqual(Box<LTL>, Box<LTL>),
     GreaterEqual(Box<LTL>, Box<LTL>),
     Greater(Box<LTL>, Box<LTL>),
@@ -45,7 +44,6 @@ impl std::fmt::Display for LTL {
             LTL::Not(inner) => write!(f, "!({})", inner),
             LTL::And(left, right) => write!(f, "({} & {})", left, right),
             LTL::Or(left, right) => write!(f, "({} | {})", left, right),
-            LTL::Implies(left, right) => write!(f, "({} -> {})", left, right),
             LTL::LessEqual(left, right) => write!(f, "({} <= {})", left, right),
             LTL::GreaterEqual(left, right) => write!(f, "({} >= {})", left, right),
             LTL::Greater(left, right) => write!(f, "({} > {})", left, right),
@@ -105,7 +103,6 @@ impl LTL {
             | LTL::SomePath(inner) => 1 + inner.size(),
             LTL::And(left, right)
             | LTL::Or(left, right)
-            | LTL::Implies(left, right)
             | LTL::LessEqual(left, right)
             | LTL::GreaterEqual(left, right)
             | LTL::Greater(left, right)
@@ -130,7 +127,7 @@ fn parse_expr_implies(input: &str) -> IResult<&str, LTL> {
     let (input, lhs) = parse_expr_or(input)?;
 
     if let Ok((next_input, rhs)) = preceded(ws(tag("->")), parse_expr_implies).parse(input) {
-        Ok((next_input, LTL::Implies(Box::new(lhs), Box::new(rhs))))
+        Ok((next_input, LTL::Or(Box::new(LTL::Not(Box::new(lhs))), Box::new(rhs))))
     } else {
         Ok((input, lhs))
     }
@@ -356,7 +353,7 @@ fn parse_implies(input: &str) -> IResult<&str, LTL> {
     let (input, lhs) = parse_or(input)?;
 
     if let Ok((next_input, rhs)) = preceded(ws(tag("->")), parse_implies).parse(input) {
-        Ok((next_input, LTL::Implies(Box::new(lhs), Box::new(rhs))))
+        Ok((next_input, LTL::Or(Box::new(LTL::Not(Box::new(lhs))), Box::new(rhs))))
     } else {
         Ok((input, lhs))
     }
@@ -422,7 +419,7 @@ pub(crate) fn parse_ltl(input: &str) -> IResult<&str, LTL> {
                 )));
             }
             LTL::Not(inner) => stack.push(inner),
-            LTL::And(left, right) | LTL::Or(left, right) | LTL::Implies(left, right) => {
+            LTL::And(left, right) | LTL::Or(left, right) => {
                 stack.push(left);
                 stack.push(right);
             }
