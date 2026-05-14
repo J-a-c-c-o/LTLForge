@@ -1,6 +1,6 @@
 Property Small-LTL
   "Small hand-written example"
   is:
-    ((a U (!(a & b) & c)) & (G ((a -> X b) & (F c))))
+    ((a U (!(a & b) & c)) & (G ((a -> (X b)) & (F c))))
   end.
 

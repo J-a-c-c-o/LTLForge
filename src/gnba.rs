@@ -25,7 +25,6 @@ pub struct Transition {
 }
 
 pub struct AcceptanceCondition {
-    pub id: usize,
     pub states: Vec<usize>,
 }
 
@@ -38,7 +37,6 @@ impl GNBA {
         let mut acceptance_conditions = generate_acceptance_conditions(&states, &closure);
         if acceptance_conditions.is_empty() {
             acceptance_conditions.push(AcceptanceCondition {
-                id: 0,
                 states: states.iter().map(|s| s.id).collect(),
             });
         }
@@ -214,34 +212,11 @@ impl GNBA {
 }
 
 impl GNBA {
-    pub fn pretty_print(&self) {
-        println!("Closure:");
-        for (idx, formula) in self.closure.iter().enumerate() {
-            println!("  {}: {}", idx, formula);
-        }
-
-        println!("States:");
-        for state in &self.states {
-            let formulas = state_to_formulas(state, &self.closure);
-            println!("  State {}: {:?}", state.id, formulas);
-        }
-
-        println!("Initial states: {:?}", self.initial_states);
-        println!("Transitions:");
-        for transition in self.all_transitions() {
-            println!(
-                "  {} --{:?}--> {}",
-                transition.from, transition.label, transition.to
-            );
-        }
-
-        println!("Acceptance conditions:");
-        for condition in &self.acceptance_conditions {
-            println!(
-                "  Condition {}: states {:?}",
-                condition.id, condition.states
-            );
-        }
+    pub fn print_stats(&self) {
+        println!("GNBA:");
+        println!("States: {}", self.states.len());
+        println!("Initial States: {}", self.initial_states.len());
+        println!("Acceptance Conditions: {}", self.acceptance_conditions.len());
     }
 
     pub fn to_dot(&self) -> String {
@@ -417,22 +392,6 @@ impl GNBA {
     }
 }
 
-/// closure + state to vector of LTL
-fn state_to_formulas(state: &State, closure: &[LTL]) -> Vec<LTL> {
-    state
-        .formulas
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, &is_true)| {
-            if is_true {
-                Some(closure[idx].clone())
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
 /// Generate all locally consistent states from the closure
 fn generate_states(closure: &[LTL]) -> Vec<State> {
     let consistent_truth_assignments = is_consistent(closure);
@@ -536,7 +495,6 @@ fn compute_label(state: &State, closure: &[LTL]) -> Vec<bool> {
 /// Generate acceptance conditions (one for each until-subformula)
 fn generate_acceptance_conditions(states: &[State], closure: &[LTL]) -> Vec<AcceptanceCondition> {
     let mut acceptance_conditions = Vec::new();
-    let mut condition_id = 0;
 
     for (idx, formula) in closure.iter().enumerate() {
         if let LTL::Until(_left, right) = formula {
@@ -572,10 +530,8 @@ fn generate_acceptance_conditions(states: &[State], closure: &[LTL]) -> Vec<Acce
                 .collect();
 
             acceptance_conditions.push(AcceptanceCondition {
-                id: condition_id,
                 states: accepting_states,
             });
-            condition_id += 1;
         }
     }
 

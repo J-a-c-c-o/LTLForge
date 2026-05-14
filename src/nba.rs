@@ -26,7 +26,6 @@ pub struct Transition {
 }
 
 pub struct AcceptanceCondition {
-    pub id: usize,
     pub states: Vec<usize>,
 }
 
@@ -67,7 +66,6 @@ impl NBA {
 
         // Accepting state: first of the gnba
         let acceptance_condition = AcceptanceCondition {
-            id: 0,
             states: new_to_gnba
                 .iter()
                 .filter_map(|(orig_id, acc, new_id)| {
@@ -127,22 +125,6 @@ impl NBA {
 
     fn gnba_state_label(&self, gnba_state_id: usize) -> Vec<bool> {
         self.gnba.label(gnba_state_id)
-    }
-
-    /// closure + state to vector of LTL
-    fn state_to_formulas(&self, state: &State) -> Vec<LTL> {
-        state
-            .formulas
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, &is_true)| {
-                if is_true {
-                    Some(self.closure[idx].clone())
-                } else {
-                    None
-                }
-            })
-            .collect()
     }
 
     fn remove_dead_states(&mut self) {
@@ -264,7 +246,17 @@ impl NBA {
                 continue;
             }
 
-            let next_acc_id = (acc_id + 1) % acc_count;
+            let next_acc_id = if self
+                .gnba
+                .acceptance_conditions[acc_id]
+                .states
+                .contains(&orig_state_id)
+            {
+                (acc_id + 1) % acc_count
+            } else {
+                acc_id
+            };
+
             for to in self.gnba.successors(orig_state_id) {
                 if let Some(&to_new) = self.gnba_to_new.get(&(to, next_acc_id)) {
                     transitions.push(Transition {
@@ -288,7 +280,17 @@ impl NBA {
             return Vec::new();
         }
 
-        let next_acc_id = (acc_id + 1) % acc_count;
+        let next_acc_id = if self
+            .gnba
+            .acceptance_conditions[acc_id]
+            .states
+            .contains(&orig_state_id)
+        {
+            (acc_id + 1) % acc_count
+        } else {
+            acc_id
+        };
+
         let mut successors = Vec::new();
         for to in self.gnba.successors(orig_state_id) {
             if let Some(&to_new) = self.gnba_to_new.get(&(to, next_acc_id)) {
@@ -300,32 +302,11 @@ impl NBA {
 }
 
 impl NBA {
-    pub fn pretty_print(&self) {
-        println!("Closure:");
-        for (idx, formula) in self.closure.iter().enumerate() {
-            println!("  {}: {}", idx, formula);
-        }
-
-        println!("States:");
-        for state in &self.states {
-            let formulas = self.state_to_formulas(state);
-            println!("  State {}: {:?}", state.id, formulas);
-        }
-
-        println!("Initial states: {:?}", self.initial_states);
-        println!("Transitions:");
-        for transition in &self.transitions {
-            println!(
-                "  {} --{:?}--> {}",
-                transition.from, transition.label, transition.to
-            );
-        }
-
-        println!("Acceptance conditions:");
-        println!(
-            "  Condition {}: states {:?}",
-            self.acceptance_condition.id, self.acceptance_condition.states
-        );
+    pub fn print_stats(&self) {
+        println!("NBA:");
+        println!("States: {}", self.states.len());
+        println!("Initial States: {}", self.initial_states.len());
+        println!("Accepting States: {}", self.acceptance_condition.states.len());
     }
 
     pub fn to_dot(&self) -> String {
@@ -516,6 +497,22 @@ mod tests {
             LTL::Or(
                 Box::new(LTL::Var("a".to_string())),
                 Box::new(LTL::Eventually(Box::new(LTL::Var("b".to_string())))),
+            ),
+            LTL::Until(
+                Box::new(LTL::Until(
+                    Box::new(LTL::Var("a".to_string())),
+                    Box::new(LTL::And(
+                        Box::new(LTL::Not(Box::new(LTL::Var("a".to_string())))),
+                        Box::new(LTL::Var("b".to_string())),
+                    )),
+                )),
+                Box::new(LTL::And(
+                    Box::new(LTL::Var("c".to_string())),
+                    Box::new(LTL::Not(Box::new(LTL::And(
+                        Box::new(LTL::Var("a".to_string())),
+                        Box::new(LTL::Var("b".to_string())),
+                    )))),
+                )),
             ),
         ];
 

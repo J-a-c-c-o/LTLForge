@@ -292,7 +292,7 @@ fn main() {
                 viewer,
                 |f| gnba::GNBA::new(f).to_hoa(),
                 |f| gnba::GNBA::new(f).to_dot(),
-                |f| gnba::GNBA::new(f).pretty_print(),
+                |f| gnba::GNBA::new(f).print_stats(),
             );
         }
 
@@ -319,7 +319,7 @@ fn main() {
                 viewer,
                 |f| nba::NBA::new(f).to_hoa(),
                 |f| nba::NBA::new(f).to_dot(),
-                |f| nba::NBA::new(f).pretty_print(),
+                |f| nba::NBA::new(f).print_stats(),
             );
         }
 
