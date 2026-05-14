@@ -307,6 +307,7 @@ impl NBA {
         println!("States: {}", self.states.len());
         println!("Initial States: {}", self.initial_states.len());
         println!("Accepting States: {}", self.acceptance_condition.states.len());
+        println!("Transitions: {}", self.transitions.len());
     }
 
     pub fn to_dot(&self) -> String {
@@ -578,7 +579,9 @@ mod tests {
             4 => LTL::Next(Box::new(random_ltl(depth - 1))),
             5 => LTL::Eventually(Box::new(random_ltl(depth - 1))),
             6 => LTL::Globally(Box::new(random_ltl(depth - 1))),
-            _ => LTL::Until(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
+            7 => LTL::Until(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
+            8 => LTL::Release(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
+            _ => LTL::WeakUntil(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
         }
     }
 }

@@ -217,6 +217,7 @@ impl GNBA {
         println!("States: {}", self.states.len());
         println!("Initial States: {}", self.initial_states.len());
         println!("Acceptance Conditions: {}", self.acceptance_conditions.len());
+        println!("Transitions: {}", self.transitions.len());
     }
 
     pub fn to_dot(&self) -> String {
