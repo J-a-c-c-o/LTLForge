@@ -250,8 +250,6 @@ impl GNBA {
             .iter()
             .filter_map(|formula| match formula {
                 LTL::Var(name) => Some(name.clone()),
-                LTL::True => Some("true".to_string()),
-                LTL::False => Some("false".to_string()),
                 LTL::TokenCount(names) => {
                     if names.len() == 1 {
                         Some(format!("#tokens(\"{}\")", names[0]))
@@ -336,8 +334,6 @@ impl GNBA {
 
         let ap_formulas: Vec<&LTL> = self.closure.iter().filter(|f| match f {
             LTL::Var(_)
-            | LTL::True
-            | LTL::False
             | LTL::TokenCount(_)
             | LTL::Fireable(_)
             | LTL::LessEqual(_, _)
@@ -527,8 +523,6 @@ fn compute_label(state: &State, closure: &[LTL]) -> Vec<bool> {
         .enumerate()
         .filter_map(|(idx, formula)| match formula {
             LTL::Var(_)
-            | LTL::True
-            | LTL::False
             | LTL::Fireable(_)
             | LTL::LessEqual(_, _)
             | LTL::GreaterEqual(_, _)
@@ -618,4 +612,110 @@ mod tests {
         }));
         assert_eq!(gnba.acceptance_conditions.len(), 1);
     }
+
+
+    #[test]
+    fn test_gnba_spot_equivalent() {
+        use std::fs;
+        use std::process::Command;
+        use std::path::Path;
+
+        let spot_bin = std::env::var("SPOT_PATH")
+            .unwrap_or_else(|_| "./spot-2.15.1/bin".to_string());
+        
+        if !Path::new(&spot_bin).exists() {
+            eprintln!("Spot not found at {}, skipping test", spot_bin);
+            return;
+        }
+
+        let test_formulas = vec![
+            LTL::Eventually(Box::new(LTL::Var("a".to_string()))),
+            LTL::Globally(Box::new(LTL::Var("a".to_string()))),
+            LTL::Until(
+                Box::new(LTL::Var("a".to_string())),
+                Box::new(LTL::Var("b".to_string())),
+            ),
+            LTL::And(
+                Box::new(LTL::Eventually(Box::new(LTL::Var("a".to_string())))),
+                Box::new(LTL::Globally(Box::new(LTL::Var("b".to_string())))),
+            ),
+            LTL::Or(
+                Box::new(LTL::Var("a".to_string())),
+                Box::new(LTL::Eventually(Box::new(LTL::Var("b".to_string())))),
+            ),
+        ];
+
+        for (i, formula) in test_formulas.iter().enumerate() {
+            let gnba = GNBA::new(formula);
+            let hoa_content = gnba.to_hoa();
+            
+            let our_hoa = format!("/tmp/test_gnba_{}.hoa", i);
+            let ref_hoa = format!("/tmp/test_gnba_{}_ref.hoa", i);
+            
+            fs::write(&our_hoa, &hoa_content)
+                .expect("Failed to write GNBA HOA file");
+            
+            let formula_str = formula_to_spot_ltl(formula);
+            
+            let ltl2tgba = format!("{}/ltl2tgba", spot_bin);
+            let output = Command::new(&ltl2tgba)
+                .arg("-H")
+                .arg(&formula_str)
+                .output()
+                .expect("Failed to run ltl2tgba");
+            
+            if !output.status.success() {
+                eprintln!("ltl2tgba failed for formula: {}", formula_str);
+                eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+                fs::remove_file(&our_hoa).ok();
+                continue;
+            }
+            
+            fs::write(&ref_hoa, &output.stdout)
+                .expect("Failed to write reference HOA file");
+            
+            let autfilt = format!("{}/autfilt", spot_bin);
+            let equiv_check = Command::new(&autfilt)
+                .arg(format!("--equivalent-to={}", our_hoa))
+                .arg(&ref_hoa)
+                .output()
+                .expect("Failed to run autfilt");
+            
+            fs::remove_file(&our_hoa).ok();
+            fs::remove_file(&ref_hoa).ok();
+            
+            assert!(
+                equiv_check.status.success(),
+                "Formula {} not equivalent: GNBA vs Spot reference\nFormula: {}\nStdout: {}\nStderr: {}",
+                i,
+                formula_str,
+                String::from_utf8_lossy(&equiv_check.stdout),
+                String::from_utf8_lossy(&equiv_check.stderr)
+            );
+        }
+    }
+
+    fn formula_to_spot_ltl(formula: &LTL) -> String {
+        match formula {
+            LTL::True => "1".to_string(),
+            LTL::False => "0".to_string(),
+            LTL::Var(name) => name.clone(),
+            LTL::Not(inner) => format!("!({})", formula_to_spot_ltl(inner)),
+            LTL::And(left, right) => format!("({} & {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
+            LTL::Or(left, right) => format!("({} | {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
+            LTL::Implies(left, right) => format!("({} -> {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
+            LTL::Next(inner) => format!("X ({})", formula_to_spot_ltl(inner)),
+            LTL::Eventually(inner) => format!("F ({})", formula_to_spot_ltl(inner)),
+            LTL::Globally(inner) => format!("G ({})", formula_to_spot_ltl(inner)),
+            LTL::Until(left, right) => format!("({} U {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
+            LTL::Release(left, right) => format!("({} R {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
+            LTL::WeakUntil(left, right) => format!("({} W {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
+            LTL::TokenCount(_) | LTL::Fireable(_) | LTL::LessEqual(_, _) | LTL::GreaterEqual(_, _) | LTL::Greater(_, _) | LTL::Less(_, _) => {
+                "1".to_string()
+            }
+            _ => "1".to_string(),
+        }
+    }
 }
+
+

@@ -116,8 +116,6 @@ fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool>
 
     fn eval_bool(formula: &LTL, petri: &PetriNet, marking: &PetriState) -> Option<bool> {
         match formula {
-            LTL::True => Some(true),
-            LTL::False => Some(false),
             LTL::Var(name) => petri
                 .places
                 .iter()
@@ -178,8 +176,6 @@ fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool>
         .iter()
         .filter_map(|formula| match formula {
             LTL::Var(_)
-            | LTL::True
-            | LTL::False
             | LTL::LessEqual(_, _)
             | LTL::GreaterEqual(_, _)
             | LTL::Greater(_, _)
