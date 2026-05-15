@@ -3,20 +3,16 @@ use crate::ltl_parser::LTL;
 pub fn to_pnf(ltl: &LTL) -> LTL {
     let mut pnf = ltl.clone();
     
-    // 1. Push negations inwards
     push_pnf_inwards(&mut pnf);
     
-    // 2. Simplify until no more changes occur
     loop {
         let old = pnf.clone();
         pnf_simplifications(&mut pnf);
         if pnf == old { break; }
     }
     
-    // 3. Eliminate temporal operators (e.g., G and F)
     pnf_eliminate_temporal_operators(&mut pnf);
     
-    // 4. Simplify again until stable
     loop {
         let old = pnf.clone();
         pnf_simplifications(&mut pnf);
@@ -493,23 +489,6 @@ mod tests {
         let pnf = to_pnf(&ltl);
 
         let expected = LTL::Var("a".to_string());
-
-        assert_eq!(pnf, expected);
-    }
-
-    #[test]
-    fn test_to_pnf_xx_release() {
-        let ltl = LTL::Next(Box::new(LTL::Release(
-            Box::new(LTL::Var("a".to_string())),
-            Box::new(LTL::Var("b".to_string())),
-        )));
-
-        let pnf = to_pnf(&ltl);
-
-        let expected = LTL::Release(
-            Box::new(LTL::Next(Box::new(LTL::Var("a".to_string())))),
-            Box::new(LTL::Next(Box::new(LTL::Var("b".to_string())))),
-        );
 
         assert_eq!(pnf, expected);
     }

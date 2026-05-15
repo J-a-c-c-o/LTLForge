@@ -9,7 +9,6 @@ use nom::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[allow(dead_code)]
 pub enum LTL {
     True,
     False,
