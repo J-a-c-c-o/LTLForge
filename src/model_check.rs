@@ -3,11 +3,45 @@ use crate::ltl_parser::LTL;
 use crate::nba::NBA;
 use crate::petri_net::{PetriNet, PetriState};
 use rustc_hash::{FxHashMap, FxHashSet};
+use std::fs;
+use std::time::{Duration, Instant};
+
+#[derive(Clone, Debug)]
+pub struct ModelCheckConfig {
+    pub timeout_secs: Option<u64>,
+    pub memory_limit_mb: Option<u64>,
+}
+
+impl Default for ModelCheckConfig {
+    fn default() -> Self {
+        Self {
+            timeout_secs: Some(300),
+            memory_limit_mb: Some(4096),
+        }
+    }
+}
+
+impl ModelCheckConfig {
+    pub fn with_limits(timeout_secs: u64, memory_limit_mb: u64) -> Self {
+        Self {
+            timeout_secs: Some(timeout_secs),
+            memory_limit_mb: Some(memory_limit_mb),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ModelCheckError {
+    Timeout,
+    MemoryLimitExceeded,
+    CouldNotDetermineMemoryUsage,
+}
 
 pub fn model_check(
     petri_net: &PetriNet,
     ltl: &LTL,
-) -> (bool, Option<Vec<CombinedState>>, Option<Vec<CombinedState>>) {
+    config: &ModelCheckConfig,
+) -> Result<(bool, Option<Vec<CombinedState>>, Option<Vec<CombinedState>>), ModelCheckError> {
     let negated_ltl = ltl.negate();
     let nba = NBA::new(&negated_ltl);
     let is_empty = check_emptyness_nba(&nba);
@@ -15,15 +49,15 @@ pub fn model_check(
         println!(
             "The language of the NBA is empty, which means the original LTL formula is valid on all traces of the Petri net."
         );
-        return (true, None, None);
+        return Ok((true, None, None));
     }
 
-    let has_counterexample = ndfs(petri_net, &nba);
-    (
+    let has_counterexample = ndfs(petri_net, &nba, config)?;
+    Ok((
         !has_counterexample.0,
         has_counterexample.1,
         has_counterexample.2,
-    )
+    ))
 }
 
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -44,6 +78,9 @@ struct NDFSContext<'a> {
     visited: FxHashSet<(CombinedState, usize)>,
     stack: Vec<CombinedState>,
     stack2: Vec<CombinedState>,
+
+    config: ModelCheckConfig,
+    start_time: Instant,
 }
 
 impl<'a> NDFSContext<'a> {
@@ -56,6 +93,27 @@ impl<'a> NDFSContext<'a> {
         self.petri_successor_cache
             .insert(state.clone(), successors.clone());
         successors
+    }
+
+    fn check_limits(&self) -> Result<(), ModelCheckError> {
+        if let Some(timeout_secs) = self.config.timeout_secs {
+            let elapsed = self.start_time.elapsed();
+            if elapsed > Duration::from_secs(timeout_secs) {
+                return Err(ModelCheckError::Timeout);
+            }
+        }
+
+        if let Some(memory_limit_mb) = self.config.memory_limit_mb {
+            let memory_limit_bytes = memory_limit_mb.saturating_mul(1024 * 1024);
+            if let Some(current_rss_bytes) = current_process_rss_bytes() {
+                if current_rss_bytes > memory_limit_bytes {
+                    return Err(ModelCheckError::MemoryLimitExceeded);
+                }
+            } else {
+                return Err(ModelCheckError::CouldNotDetermineMemoryUsage);
+            }
+        }
+        Ok(())
     }
 
     fn successors(&mut self, state: &CombinedState) -> Vec<CombinedState> {
@@ -189,7 +247,8 @@ fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool>
 fn ndfs(
     petri: &PetriNet,
     nba: &NBA,
-) -> (bool, Option<Vec<CombinedState>>, Option<Vec<CombinedState>>) {
+    config: &ModelCheckConfig,
+) -> Result<(bool, Option<Vec<CombinedState>>, Option<Vec<CombinedState>>), ModelCheckError> {
     let mut ctx = NDFSContext {
         petri,
         nba,
@@ -199,6 +258,8 @@ fn ndfs(
         visited: FxHashSet::default(),
         stack: Vec::new(),
         stack2: Vec::new(),
+        config: config.clone(),
+        start_time: Instant::now(),
     };
 
     let initial_marking = petri.initial_state();
@@ -211,16 +272,16 @@ fn ndfs(
                 nba_state: q_start,
             };
 
-            if dfs1(&mut ctx, init) {
-                return (true, Some(ctx.stack.clone()), Some(ctx.stack2.clone()));
+            if dfs1(&mut ctx, init)? {
+                return Ok((true, Some(ctx.stack.clone()), Some(ctx.stack2.clone())));
             }
         }
     }
 
-    (false, None, None)
+    Ok((false, None, None))
 }
 
-fn dfs1(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
+fn dfs1(ctx: &mut NDFSContext, init_state: CombinedState) -> Result<bool, ModelCheckError> {
     let mut call_stack = Vec::new();
 
     ctx.visited.insert((init_state.clone(), 0));
@@ -228,6 +289,8 @@ fn dfs1(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
     call_stack.push((init_state.clone(), ctx.successors(&init_state).into_iter()));
 
     while let Some((state, mut succs)) = call_stack.pop() {
+        ctx.check_limits()?;
+
         if let Some(succ) = succs.next() {
             call_stack.push((state.clone(), succs));
 
@@ -239,8 +302,8 @@ fn dfs1(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
         } else {
             if ctx.is_accepting(&state) {
                 ctx.seed = Some((state.clone(), 1));
-                if dfs2(ctx, state.clone()) {
-                    return true;
+                if dfs2(ctx, state.clone())? {
+                    return Ok(true);
                 }
             }
             ctx.stack.pop();
@@ -248,10 +311,10 @@ fn dfs1(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
     }
 
     ctx.stack.clear();
-    false
+    Ok(false)
 }
 
-fn dfs2(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
+fn dfs2(ctx: &mut NDFSContext, init_state: CombinedState) -> Result<bool, ModelCheckError> {
     let mut call_stack = Vec::new();
 
     ctx.visited.insert((init_state.clone(), 1));
@@ -259,11 +322,13 @@ fn dfs2(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
     call_stack.push((init_state.clone(), ctx.successors(&init_state).into_iter()));
 
     while let Some((state, mut succs)) = call_stack.pop() {
+        ctx.check_limits()?;
+
         if let Some(succ) = succs.next() {
             call_stack.push((state.clone(), succs));
 
             if ctx.seed == Some((succ.clone(), 1)) {
-                return true;
+                return Ok(true);
             }
             if !ctx.visited.contains(&(succ.clone(), 1)) {
                 ctx.visited.insert((succ.clone(), 1));
@@ -276,5 +341,22 @@ fn dfs2(ctx: &mut NDFSContext, init_state: CombinedState) -> bool {
     }
 
     ctx.stack2.clear();
-    false
+    Ok(false)
 }
+
+fn current_process_rss_bytes() -> Option<u64> {
+    let status = fs::read_to_string("/proc/self/status").ok()?;
+    parse_vm_rss_bytes(&status)
+}
+
+fn parse_vm_rss_bytes(status: &str) -> Option<u64> {
+    for line in status.lines() {
+        if let Some(rest) = line.strip_prefix("VmRSS:") {
+            let rss_kb = rest.split_whitespace().next()?.parse::<u64>().ok()?;
+            return Some(rss_kb * 1024);
+        }
+    }
+
+    None
+}
+

@@ -280,6 +280,9 @@ fn pnf_simplifications(expr: &mut LTL) {
             if let (LTL::Eventually(l), LTL::Eventually(r)) = (&**left, &**right) {
                 *expr = LTL::Eventually(Box::new(LTL::Or(l.clone(), r.clone())));
                 pnf_simplifications(expr);
+            } else if let (LTL::Globally(l), LTL::Globally(r)) = (&**left, &**right) {
+                *expr = LTL::Globally(Box::new(LTL::Or(l.clone(), r.clone())));
+                pnf_simplifications(expr);
             } else if let LTL::False = **left {
                 *expr = *right.clone();
                 pnf_simplifications(expr);
@@ -489,6 +492,23 @@ mod tests {
         let pnf = to_pnf(&ltl);
 
         let expected = LTL::Var("a".to_string());
+
+        assert_eq!(pnf, expected);
+    }
+
+    #[test]
+    fn test_fgf() {
+        let ltl = LTL::Eventually(Box::new(LTL::Globally(Box::new(LTL::Eventually(Box::new(LTL::Var("a".to_string())))))));
+
+        let pnf = to_pnf(&ltl);
+
+        let expected = LTL::Release(
+            Box::new(LTL::False),
+            Box::new(LTL::Until(
+                Box::new(LTL::True),
+                Box::new(LTL::Var("a".to_string())),
+            )),
+        );
 
         assert_eq!(pnf, expected);
     }

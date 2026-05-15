@@ -41,6 +41,12 @@ enum Commands {
         /// Show counterexample paths and cycles if property is violated
         #[arg(long, short)]
         show_counterexample: bool,
+        /// Timeout in seconds
+        #[arg(long, default_value = "300")]
+        timeout: u64,
+        /// Memory limit in MB
+        #[arg(long, default_value = "4096")]
+        memory_limit: u64,
     },
     /// Convert LTL formula to positive normal form
     Pnf {
@@ -178,6 +184,8 @@ fn main() {
             pnml_file,
             ltl_file,
             show_counterexample,
+            timeout,
+            memory_limit,
         } => {
             println!(
                 "{} PNML: {}, LTL: {}",
@@ -185,6 +193,15 @@ fn main() {
                 pnml_file.underline(),
                 ltl_file.underline()
             );
+            println!(
+                "{} Timeout: {}s, Memory limit: {}MB",
+                "[Config]".bright_cyan().bold(),
+                timeout.to_string().yellow(),
+                memory_limit.to_string().yellow()
+            );
+
+            let config = model_check::ModelCheckConfig::with_limits(timeout, memory_limit);
+
             let petri_nets = PetriNetBuilder::build_from_file(&pnml_file);
             if petri_nets.is_empty() {
                 eprintln!(
@@ -205,44 +222,71 @@ fn main() {
                             format!("[{}]", name).magenta().bold(),
                             formula.to_string().italic()
                         );
-                        let (result, counterexample_path, counterexample_cycle) =
-                            model_check::model_check(petri_net, &formula);
+                        match model_check::model_check(petri_net, &formula, &config) {
+                            Ok((result, counterexample_path, counterexample_cycle)) => {
+                                summary.push((name.clone(), Ok(result)));
 
-                        summary.push((name, result));
+                                if result {
+                                    println!("{}", "Result: Property holds ✔".green().bold());
+                                } else {
+                                    println!(
+                                        "{}",
+                                        "Result: Property is violated ✘ (counterexample exists)"
+                                            .red()
+                                            .bold()
+                                    );
 
-                        if result {
-                            println!("{}", "Result: Property holds ✔".green().bold());
-                        } else {
-                            println!(
-                                "{}",
-                                "Result: Property is violated ✘ (counterexample exists)"
+                                    if show_counterexample {
+                                        println!();
+                                        println!("{}", "Counterexample path:".blue().bold());
+                                        printstack(&counterexample_path, petri_net);
+
+                                        println!();
+                                        println!("{}", "Counterexample cycle:".blue().bold());
+                                        printstack(&counterexample_cycle, petri_net);
+                                    }
+                                }
+                            }
+                            Err(model_check::ModelCheckError::Timeout) => {
+                                eprintln!(
+                                    "{}",
+                                    format!("  ERROR: Model checking timed out after {}s", timeout)
+                                        .red()
+                                        .bold()
+                                );
+                                summary.push((name.clone(), Err("Timeout".to_string())));
+                            }
+                            Err(model_check::ModelCheckError::MemoryLimitExceeded) => {
+                                eprintln!(
+                                    "{}",
+                                    format!(
+                                        "  ERROR: Memory limit exceeded ({}MB)",
+                                        memory_limit
+                                    )
                                     .red()
                                     .bold()
-                            );
-
-                            if show_counterexample {
-                                println!();
-                                println!("{}", "Counterexample path:".blue().bold());
-                                printstack(&counterexample_path, petri_net);
-
-                                println!();
-                                println!("{}", "Counterexample cycle:".blue().bold());
-                                printstack(&counterexample_cycle, petri_net);
+                                );
+                                summary.push((name.clone(), Err("Memory limit".to_string())));
+                            }
+                            Err(model_check::ModelCheckError::CouldNotDetermineMemoryUsage) => {
+                                eprintln!(
+                                    "{}",
+                                    format!("  ERROR: Could not determine memory usage")
+                                        .red()
+                                        .bold()
+                                );
+                                summary.push((name.clone(), Err("Could not determine memory usage".to_string())));
                             }
                         }
                         println!();
                     }
                     println!("{}", "Summary:".yellow().bold());
                     for (name, result) in summary {
-                        println!(
-                            "  - {}: {}",
-                            name,
-                            if result {
-                                "Holds ✔".green()
-                            } else {
-                                "Violated ✘".red()
-                            }
-                        );
+                        match result {
+                            Ok(true) => println!("  - {}: {}", name, "Holds ✔".green()),
+                            Ok(false) => println!("  - {}: {}", name, "Violated ✘".red()),
+                            Err(e) => println!("  - {}: {}", name, format!("Error ({})", e).red()),
+                        }
                     }
                 }
                 Err(e) => eprintln!("{} {}", "Error parsing LTL file:".red().bold(), e),
