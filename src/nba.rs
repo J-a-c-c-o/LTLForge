@@ -6,7 +6,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 pub struct NBA {
     pub closure: Vec<LTL>,
     pub states: Vec<State>,
-    pub transitions: Vec<Transition>,
+    pub transitions: Vec<Transitions>,
     pub initial_states: Vec<usize>,
     pub acceptance_condition: AcceptanceCondition,
     new_to_gnba: Vec<(usize, usize, usize)>,
@@ -19,11 +19,12 @@ pub struct State {
     pub formulas: Vec<bool>,
 }
 
-pub struct Transition {
-    pub from: usize,
-    pub to: usize,
-    pub label: Vec<bool>,
+#[derive(Clone)]
+pub struct Transitions {
+    pub transitions: Vec<usize>,
+    pub label: Vec<Vec<bool>>,
 }
+
 
 pub struct AcceptanceCondition {
     pub states: Vec<usize>,
@@ -87,6 +88,7 @@ impl NBA {
             gnba_to_new,
             gnba,
         };
+        nba.transitions = nba.generate_transitions();
         nba.remove_dead_states();
         nba
     }
@@ -107,20 +109,12 @@ impl NBA {
             return Vec::new();
         }
 
-        self.successors(state_id)
+        self.successors(state_id).to_vec()
     }
 
-    pub fn successors(&self, state_id: usize) -> Vec<usize> {
-        self.transitions
-            .iter()
-            .filter_map(|transition| {
-                if transition.from == state_id {
-                    Some(transition.to)
-                } else {
-                    None
-                }
-            })
-            .collect()
+    pub fn successors(&self, state_id: usize) -> &[usize] {
+        &self.transitions[state_id]
+            .transitions
     }
 
     fn gnba_state_label(&self, gnba_state_id: usize) -> Vec<bool> {
@@ -141,7 +135,6 @@ impl NBA {
             .collect();
 
         if useful_states.len() == self.states.len() {
-            self.transitions = self.generate_transitions();
             return;
         }
 
@@ -195,7 +188,7 @@ impl NBA {
         }
 
         while let Some(state_id) = queue.pop_front() {
-            for successor in self.raw_successors(state_id) {
+            for &successor in self.successors(state_id) {
                 if reachable.insert(successor) {
                     queue.push_back(successor);
                 }
@@ -208,7 +201,7 @@ impl NBA {
     fn compute_backward_reachable(&self) -> FxHashSet<usize> {
         let mut predecessors: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
         for state in &self.states {
-            for successor in self.raw_successors(state.id) {
+            for &successor in self.successors(state.id) {
                 predecessors.entry(successor).or_default().push(state.id);
             }
         }
@@ -236,8 +229,12 @@ impl NBA {
     }
 
     /// Generates transitions for the NBA based on the states and closure
-    fn generate_transitions(&self) -> Vec<Transition> {
-        let mut transitions = Vec::new();
+    fn generate_transitions(&self) -> Vec<Transitions> {
+        let mut transitions = vec![Transitions {
+            transitions: Vec::new(),
+            label: Vec::new(),
+        }; self.states.len()];
+        
         for from_new_id in 0..self.states.len() {
             let (orig_state_id, acc_id, _) = self.new_to_gnba[from_new_id];
             let label = self.gnba.label(orig_state_id);
@@ -257,47 +254,14 @@ impl NBA {
                 acc_id
             };
 
-            for to in self.gnba.successors(orig_state_id) {
+            for &to in self.gnba.successors(orig_state_id) {
                 if let Some(&to_new) = self.gnba_to_new.get(&(to, next_acc_id)) {
-                    transitions.push(Transition {
-                        from: from_new_id,
-                        to: to_new,
-                        label: label.clone(),
-                    });
+                    transitions[from_new_id].transitions.push(to_new);
+                    transitions[from_new_id].label.push(label.clone());
                 }
             }
         }
         transitions
-    }
-
-    fn raw_successors(&self, state_id: usize) -> Vec<usize> {
-        let Some(&(orig_state_id, acc_id, _)) = self.new_to_gnba.get(state_id) else {
-            return Vec::new();
-        };
-
-        let acc_count = self.gnba.acceptance_conditions.len();
-        if acc_count == 0 {
-            return Vec::new();
-        }
-
-        let next_acc_id = if self
-            .gnba
-            .acceptance_conditions[acc_id]
-            .states
-            .contains(&orig_state_id)
-        {
-            (acc_id + 1) % acc_count
-        } else {
-            acc_id
-        };
-
-        let mut successors = Vec::new();
-        for to in self.gnba.successors(orig_state_id) {
-            if let Some(&to_new) = self.gnba_to_new.get(&(to, next_acc_id)) {
-                successors.push(to_new);
-            }
-        }
-        successors
     }
 }
 
@@ -368,22 +332,24 @@ impl NBA {
             s.push_str(&format!("  {} [label=\"{}\"];\n", state.id, state.id));
         }
 
-        for t in &self.transitions {
-            let label_items: Vec<String> = atomic_names
-                .iter()
-                .zip(t.label.iter())
-                .filter_map(|(name, &b)| if b { Some(name.clone()) } else { None })
-                .collect();
-            let label_str = if label_items.is_empty() {
-                "".to_string()
-            } else {
-                label_items.join(",")
-            };
-            let escaped = label_str.replace('"', "\\\"");
-            s.push_str(&format!(
-                "  {} -> {} [label=\"{}\"];\n",
-                t.from, t.to, escaped
-            ));
+        for (from_id, trans_entry) in self.transitions.iter().enumerate() {
+            for (to_id, label) in trans_entry.transitions.iter().zip(trans_entry.label.iter()) {
+                let label_items: Vec<String> = atomic_names
+                    .iter()
+                    .zip(label.iter())
+                    .filter_map(|(name, &b)| if b { Some(name.clone()) } else { None })
+                    .collect();
+                let label_str = if label_items.is_empty() {
+                    "".to_string()
+                } else {
+                    label_items.join(",")
+                };
+                let escaped = label_str.replace('"', "\\\"");
+                s.push_str(&format!(
+                    "  {} -> {} [label=\"{}\"];\n",
+                    from_id, to_id, escaped
+                ));
+            }
         }
 
         // Mark accepting states
@@ -439,9 +405,10 @@ impl NBA {
 
             hoa.push_str(&format!("State: {}{}\n", state.id, acc_str));
 
-            for trans in self.transitions.iter().filter(|t| t.from == state.id) {
+            let trans_entry = &self.transitions[state.id];
+            for (to_id, label) in trans_entry.transitions.iter().zip(trans_entry.label.iter()) {
                 let mut label_parts = Vec::new();
-                for (i, &val) in trans.label.iter().enumerate() {
+                for (i, &val) in label.iter().enumerate() {
                     if val {
                         label_parts.push(format!("{}", i));
                     } else {
@@ -455,7 +422,7 @@ impl NBA {
                     format!("[{}]", label_parts.join(" & "))
                 };
 
-                hoa.push_str(&format!("  {} {}\n", label_str, trans.to));
+                hoa.push_str(&format!("  {} {}\n", label_str, to_id));
             }
         }
 

@@ -70,7 +70,7 @@ fn dfs1_nba(ctx: &mut NDFSContextNBA, state: usize) -> bool {
     ctx.visited.insert((state, 0));
     ctx.stack.push(state);
 
-    for succ in ctx.nba.successors(state) {
+    for &succ in ctx.nba.successors(state) {
         if !ctx.visited.contains(&(succ, 0)) && dfs1_nba(ctx, succ) {
             return true;
         }
@@ -91,7 +91,7 @@ fn dfs2_nba(ctx: &mut NDFSContextNBA, state: usize) -> bool {
     ctx.visited.insert((state, 1));
     ctx.stack2.push(state);
 
-    for succ in ctx.nba.successors(state) {
+    for &succ in ctx.nba.successors(state) {
         if ctx.seed == Some((succ, 1)) {
             return true;
         }
@@ -116,7 +116,7 @@ fn dfs1_gnba(ctx: &mut NDFSContextGNBA, state: usize) -> bool {
     ctx.visited.insert((state, 0));
     ctx.stack.push(state);
 
-    for succ in ctx.gnba.successors(state) {
+    for &succ in ctx.gnba.successors(state) {
         if !ctx.visited.contains(&(succ, 0)) && dfs1_gnba(ctx, succ) {
             return true;
         }
@@ -137,7 +137,7 @@ fn dfs2_gnba(ctx: &mut NDFSContextGNBA, state: usize) -> bool {
     ctx.visited.insert((state, 1));
     ctx.stack2.push(state);
 
-    for succ in ctx.gnba.successors(state) {
+    for &succ in ctx.gnba.successors(state) {
         if ctx.seed == Some((succ, 1)) {
             return true;
         }

@@ -8,7 +8,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 pub struct GNBA {
     pub closure: Vec<LTL>,
     pub states: Vec<State>,
-    pub transitions: Vec<Transition>,
+    pub transitions: Vec<Transitions>,
     pub initial_states: Vec<usize>,
     pub acceptance_conditions: Vec<AcceptanceCondition>,
 }
@@ -18,10 +18,10 @@ pub struct State {
     pub formulas: Vec<bool>,
 }
 
-pub struct Transition {
-    pub from: usize,
-    pub to: usize,
-    pub label: Vec<bool>,
+#[derive(Clone)]
+pub struct Transitions {
+    pub transitions: Vec<usize>,
+    pub label: Vec<Vec<bool>>,
 }
 
 pub struct AcceptanceCondition {
@@ -47,26 +47,16 @@ impl GNBA {
             initial_states,
             acceptance_conditions,
         };
+        gnba.transitions = gnba.generate_transitions();
         gnba.remove_dead_states();
         gnba
     }
 
-    pub fn successors(&self, state_id: usize) -> Vec<usize> {
-        self.transitions
-            .iter()
-            .filter_map(|transition| {
-                if transition.from == state_id {
-                    Some(transition.to)
-                } else {
-                    None
-                }
-            })
-            .collect()
+    pub fn successors(&self, state_id: usize) -> &[usize] {
+        &self.transitions[state_id].transitions
     }
 
-    pub fn all_transitions(&self) -> &[Transition] {
-        &self.transitions
-    }
+
 
     pub fn is_accepting(&self, state_id: usize) -> bool {
         self.acceptance_conditions
@@ -139,7 +129,7 @@ impl GNBA {
         }
 
         while let Some(state_id) = queue.pop_front() {
-            for successor in self.raw_successors(state_id) {
+            for &successor in self.successors(state_id) {
                 if reachable.insert(successor) {
                     queue.push_back(successor);
                 }
@@ -152,7 +142,7 @@ impl GNBA {
     fn compute_backward_reachable(&self) -> FxHashSet<usize> {
         let mut predecessors: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
         for state in &self.states {
-            for successor in self.raw_successors(state.id) {
+            for &successor in self.successors(state.id) {
                 predecessors.entry(successor).or_default().push(state.id);
             }
         }
@@ -181,29 +171,19 @@ impl GNBA {
         reachable
     }
 
-    fn raw_successors(&self, state_id: usize) -> Vec<usize> {
-        let from_state = &self.states[state_id];
-        let mut successors = Vec::new();
-        for to_state in &self.states {
-            if is_valid_transition(from_state, to_state, &self.closure) {
-                successors.push(to_state.id);
-            }
-        }
-        successors
-    }
-
-    fn generate_transitions(&self) -> Vec<Transition> {
-        let mut transitions = Vec::new();
+    fn generate_transitions(&self) -> Vec<Transitions> {
+        let mut transitions = vec![Transitions {
+            transitions: Vec::new(),
+            label: Vec::new(),
+        }; self.states.len()];
+        
         for from_idx in 0..self.states.len() {
             let label = self.label(from_idx);
             for to_idx in 0..self.states.len() {
                 if is_valid_transition(&self.states[from_idx], &self.states[to_idx], &self.closure)
                 {
-                    transitions.push(Transition {
-                        from: from_idx,
-                        to: to_idx,
-                        label: label.clone(),
-                    });
+                    transitions[from_idx].transitions.push(to_idx);
+                    transitions[from_idx].label.push(label.clone());
                 }
             }
         }
@@ -276,22 +256,24 @@ impl GNBA {
             s.push_str(&format!("  start -> {};\n", init));
         }
 
-        for t in self.all_transitions() {
-            let label_items: Vec<String> = atomic_names
-                .iter()
-                .zip(t.label.iter())
-                .filter_map(|(name, &b)| if b { Some(name.clone()) } else { None })
-                .collect();
-            let label_str = if label_items.is_empty() {
-                "".to_string()
-            } else {
-                label_items.join(",")
-            };
-            let escaped = label_str.replace('"', "\\\"");
-            s.push_str(&format!(
-                "  {} -> {} [label=\"{}\"];\n",
-                t.from, t.to, escaped
-            ));
+        for (from_id, trans_entry) in self.transitions.iter().enumerate() {
+            for (to_id, label) in trans_entry.transitions.iter().zip(trans_entry.label.iter()) {
+                let label_items: Vec<String> = atomic_names
+                    .iter()
+                    .zip(label.iter())
+                    .filter_map(|(name, &b)| if b { Some(name.clone()) } else { None })
+                    .collect();
+                let label_str = if label_items.is_empty() {
+                    "".to_string()
+                } else {
+                    label_items.join(",")
+                };
+                let escaped = label_str.replace('"', "\\\"");
+                s.push_str(&format!(
+                    "  {} -> {} [label=\"{}\"];\n",
+                    from_id, to_id, escaped
+                ));
+            }
         }
 
         for condition in &self.acceptance_conditions {
@@ -368,9 +350,10 @@ impl GNBA {
 
             hoa.push_str(&format!("State: {}{}\n", state.id, acc_str));
 
-            for trans in self.transitions.iter().filter(|t| t.from == state.id) {
+            let trans_entry = &self.transitions[state.id];
+            for (to_id, label) in trans_entry.transitions.iter().zip(trans_entry.label.iter()) {
                 let mut label_parts = Vec::new();
-                for (i, &val) in trans.label.iter().enumerate() {
+                for (i, &val) in label.iter().enumerate() {
                     if val {
                         label_parts.push(format!("{}", i));
                     } else {
@@ -384,7 +367,7 @@ impl GNBA {
                     format!("[{}]", label_parts.join(" & "))
                 };
 
-                hoa.push_str(&format!("  {} {}\n", label_str, trans.to));
+                hoa.push_str(&format!("  {} {}\n", label_str, to_id));
             }
         }
 
