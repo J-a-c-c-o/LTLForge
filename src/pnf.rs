@@ -280,9 +280,6 @@ fn pnf_simplifications(expr: &mut LTL) {
             if let (LTL::Eventually(l), LTL::Eventually(r)) = (&**left, &**right) {
                 *expr = LTL::Eventually(Box::new(LTL::Or(l.clone(), r.clone())));
                 pnf_simplifications(expr);
-            } else if let (LTL::Globally(l), LTL::Globally(r)) = (&**left, &**right) {
-                *expr = LTL::Globally(Box::new(LTL::Or(l.clone(), r.clone())));
-                pnf_simplifications(expr);
             } else if let LTL::False = **left {
                 *expr = *right.clone();
                 pnf_simplifications(expr);
