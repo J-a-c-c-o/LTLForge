@@ -1,15 +1,15 @@
 use crate::ltl_parser::LTL;
-use std::collections::BTreeSet;
+use rustc_hash::FxHashSet;
 
 pub fn is_consistent(closure: &[LTL]) -> Vec<Vec<bool>> {
-    let mut hash_set: BTreeSet<Vec<bool>> = BTreeSet::new();
+    let mut hash_set: FxHashSet<Vec<bool>> = FxHashSet::default();
     consistent_sets(closure, &[], &mut hash_set);
     let consistent_sets: Vec<Vec<bool>> = hash_set.into_iter().collect();
 
     consistent_sets
 }
 
-fn consistent_sets(closure: &[LTL], partial_truth: &[bool], hash_set: &mut BTreeSet<Vec<bool>>) {
+fn consistent_sets(closure: &[LTL], partial_truth: &[bool], hash_set: &mut FxHashSet<Vec<bool>>) {
     if partial_truth.len() == closure.len() {
         hash_set.insert(partial_truth.to_vec());
         return;

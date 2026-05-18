@@ -467,6 +467,7 @@ fn compute_label(state: &State, closure: &[LTL]) -> Vec<bool> {
         .filter_map(|(idx, formula)| match formula {
             LTL::Var(_)
             | LTL::Fireable(_)
+            | LTL::TokenCount(_)
             | LTL::LessEqual(_, _)
             | LTL::GreaterEqual(_, _)
             | LTL::Greater(_, _)
