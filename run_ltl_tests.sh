@@ -1,0 +1,175 @@
+#!/bin/bash
+
+# LTL Test Runner Script
+# Usage: ./run_ltl_tests.sh [--timeout SECONDS] [--input-dir DIR] [--output-file FILE] [--verbose]
+
+set -e
+
+# Configuration
+TIMEOUT=2
+INPUT_DIR="inputs/INPUTS-2025"
+OUTPUT_FILE="results.txt"
+VERBOSE=false
+LTL_PATTERNS=("LTLCardinality.txt" "LTLFireability.txt")
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --timeout)
+            TIMEOUT=$2
+            shift 2
+            ;;
+        --input-dir)
+            INPUT_DIR=$2
+            shift 2
+            ;;
+        --output-file)
+            OUTPUT_FILE=$2
+            shift 2
+            ;;
+        --verbose)
+            VERBOSE=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--timeout SECONDS] [--input-dir DIR] [--output-file FILE] [--verbose]"
+            exit 1
+            ;;
+    esac
+done
+
+# Check if input directory exists
+if [ ! -d "$INPUT_DIR" ]; then
+    echo "[ERROR] Input directory does not exist: $INPUT_DIR"
+    exit 1
+fi
+
+# Build the project if not already built
+if [ ! -f "target/release/ltltools" ]; then
+    echo "Building project..."
+    cargo build --release
+fi
+
+BINARY="target/release/ltltools"
+
+# Initialize output file with timestamp
+{
+    echo "LTL Model Checking Results"
+    echo "=========================="
+    echo "Generated: $(date)"
+    echo "Timeout: ${TIMEOUT}s"
+    echo "Input Directory: $INPUT_DIR"
+    echo ""
+} > "$OUTPUT_FILE"
+
+# Counter variables
+total_tests=0
+passed_tests=0
+failed_tests=0
+error_tests=0
+processed_dirs=0
+
+# Process each test case directory
+for test_dir in "$INPUT_DIR"/*/ ; do
+    if [ ! -d "$test_dir" ]; then
+        continue
+    fi
+    
+    ((processed_dirs++)) || true
+    test_name=$(basename "$test_dir")
+    model_file="$test_dir/model.pnml"
+    
+    if [ ! -f "$model_file" ]; then
+        echo "[WARNING] Skipping $test_name: Missing model.pnml"
+        continue
+    fi
+    
+    # Process each LTL test file
+    for pattern in "${LTL_PATTERNS[@]}"; do
+        ltl_file="$test_dir/$pattern"
+        
+        if [ ! -f "$ltl_file" ]; then
+            if [ "$VERBOSE" = true ]; then
+                echo "[INFO] Skipping $pattern in $test_name: File not found"
+            fi
+            continue
+        fi
+        
+        # Extract test type from pattern
+        test_type="${pattern%.txt}"
+        result_name="${test_name}-${test_type}"
+        
+        if [ "$VERBOSE" = true ]; then
+            echo "Running: $result_name"
+        fi
+        
+        # Run the model checker with simple output and capture result
+        # We turn off set -e temporarily for the binary execution so a crash doesn't kill the script
+        set +e
+        result=$("$BINARY" check "$model_file" "$ltl_file" --timeout "$TIMEOUT" --simple 2>&1)
+        exit_code=$?
+        set -e
+        
+        # Remove any trailing whitespace/newlines
+        result=$(echo "$result" | tr -d '\n' | xargs)
+        
+        # Extract ONLY the characters p, f, and ? for counting
+        clean_result=$(echo "$result" | tr -cd 'pf?')
+        
+        if [ -n "$clean_result" ] && [ $exit_code -eq 0 ]; then
+            pass_count=$(echo "$clean_result" | tr -cd 'p' | wc -c)
+            fail_count=$(echo "$clean_result" | tr -cd 'f' | wc -c)
+            error_count=$(echo "$clean_result" | tr -cd '?' | wc -c)
+            
+            ((total_tests++)) || true
+            ((passed_tests += pass_count)) || true
+            ((failed_tests += fail_count)) || true
+            ((error_tests += error_count)) || true
+            
+            # Write to output file
+            {
+                echo "$result_name"
+                echo "  Raw Output: $result"
+                echo "  Pass: $pass_count, Fail: $fail_count, Error: $error_count"
+                echo ""
+            } >> "$OUTPUT_FILE"
+        else
+            # Error occurred or no valid output was found
+            {
+                echo "$result_name"
+                echo "  Error/Crash Output: $result"
+                echo ""
+            } >> "$OUTPUT_FILE"
+            
+            ((total_tests++)) || true
+            ((error_tests++)) || true
+        fi
+    done
+done
+
+if [ "$processed_dirs" -eq 0 ]; then
+    echo "[WARNING] No directories were found in $INPUT_DIR!"
+fi
+
+# Write summary to output file and stdout
+{
+    echo "=========================="
+    echo "Summary:"
+    echo "Total test files processed: $total_tests"
+    echo "Total properties evaluated:"
+    echo "  Passed: $passed_tests"
+    echo "  Failed: $failed_tests"
+    echo "  Error/Timeout: $error_tests"
+} >> "$OUTPUT_FILE"
+
+echo ""
+echo "=========================="
+echo "Summary:"
+echo "Total test files processed: $total_tests"
+echo "Total properties evaluated:"
+echo "  Passed: $passed_tests"
+echo "  Failed: $failed_tests"
+echo "  Error/Timeout: $error_tests"
+echo ""
+echo "Results saved to: $OUTPUT_FILE"

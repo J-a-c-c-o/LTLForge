@@ -46,9 +46,6 @@ pub fn model_check(
     let nba = NBA::new(&negated_ltl);
     let is_empty = check_emptyness_nba(&nba);
     if is_empty.0 {
-        println!(
-            "The language of the NBA is empty, which means the original LTL formula is valid on all traces of the Petri net."
-        );
         return Ok((true, None, None));
     }
 
