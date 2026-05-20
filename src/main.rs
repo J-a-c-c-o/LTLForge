@@ -5,7 +5,6 @@ mod emptyness;
 mod explorer;
 mod gnba;
 mod ltl_parser;
-mod model_check;
 mod nba;
 mod petri_net;
 mod philosophers;
@@ -90,6 +89,12 @@ enum Commands {
     Sat {
         /// LTL specification file
         ltl_file: String,
+        /// Timeout in seconds
+        #[arg(long, default_value = "300")]
+        timeout: u64,
+        /// Memory limit in MB
+        #[arg(long, default_value = "4096")]
+        memory_limit: u64,
         /// Show counterexample paths and cycles if property is satisfiable
         #[arg(long, short)]
         show_counterexample: bool,
@@ -110,6 +115,15 @@ enum Commands {
 }
 
 fn main() {
+    std::thread::Builder::new()
+        .stack_size(1024 * 1024 * 1024)
+        .spawn(run)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn run() {
     let cli = Cli::parse();
 
     match cli.command {
@@ -206,7 +220,7 @@ fn main() {
                 );
             }
 
-            let config = model_check::ModelCheckConfig::with_limits(timeout, memory_limit);
+            let config = emptyness::ModelCheckConfig::with_limits(timeout, memory_limit);
 
             let petri_nets = PetriNetBuilder::build_from_file(&pnml_file);
             if petri_nets.is_empty() {
@@ -237,7 +251,7 @@ fn main() {
                             );
                         }
                         
-                        match model_check::model_check(petri_net, &formula, &config) {
+                        match emptyness::model_check(petri_net, &formula, &config) {
                             Ok((result, counterexample_path, counterexample_cycle)) => {
                                 summary.push((name.clone(), Ok(result)));
                                 simple_output.push(if result { 'p' } else { 'f' });
@@ -265,7 +279,7 @@ fn main() {
                                     }
                                 }
                             }
-                            Err(model_check::ModelCheckError::Timeout) => {
+                            Err(emptyness::ModelCheckError::Timeout) => {
                                 if simple {
                                     simple_output.push('?');
                                 } else {
@@ -278,7 +292,7 @@ fn main() {
                                 }
                                 summary.push((name.clone(), Err("Timeout".to_string())));
                             }
-                            Err(model_check::ModelCheckError::MemoryLimitExceeded) => {
+                            Err(emptyness::ModelCheckError::MemoryLimitExceeded) => {
                                 if simple {
                                     simple_output.push('?');
                                 } else {
@@ -294,7 +308,7 @@ fn main() {
                                 }
                                 summary.push((name.clone(), Err("Memory limit".to_string())));
                             }
-                            Err(model_check::ModelCheckError::CouldNotDetermineMemoryUsage) => {
+                            Err(emptyness::ModelCheckError::CouldNotDetermineMemoryUsage) => {
                                 if simple {
                                     simple_output.push('?');
                                 } else {
@@ -412,6 +426,8 @@ fn main() {
 
         Commands::Sat {
             ltl_file,
+            timeout,
+            memory_limit,
             show_counterexample,
         } => {
             println!(
@@ -419,39 +435,46 @@ fn main() {
                 "[SAT]".bright_cyan().bold(),
                 ltl_file.underline()
             );
+            println!(
+                "{} Timeout: {}s, Memory limit: {}MB",
+                "[Config]".bright_cyan().bold(),
+                timeout.to_string().yellow(),
+                memory_limit.to_string().yellow()
+            );
+            let config = emptyness::ModelCheckConfig::with_limits(timeout, memory_limit);
             match ltl_parser::parse_mcc_file(&ltl_file) {
                 Ok(formulas) => {
                     for (name, formula) in formulas {
                         println!("{}", format!("[{}]", name).magenta().bold());
                         println!("  {} {}", "Formula:".blue(), formula);
-                        let (
-                            (nba_sat, stack_path_nba, stack_cycle_nba),
-                            (gnba_sat, stack_path_gnba, stack_cycle_gnba),
-                        ) = emptyness::is_satisfiable(&formula);
-
-                        let sat_str = |val: bool| {
-                            if val {
-                                "Satisfiable".green().bold()
-                            } else {
-                                "Unsatisfiable".red().bold()
+                        match emptyness::is_satisfiable(&formula, &config) {
+                            Ok(((nba_sat, stack_path_nba, stack_cycle_nba), (gnba_sat, stack_path_gnba, stack_cycle_gnba))) => {
+                                let sat_str = |val: bool| {
+                                    if val {
+                                        "Satisfiable".green().bold()
+                                    } else {
+                                        "Unsatisfiable".red().bold()
+                                    }
+                                };
+                                println!("  NBA:  {}", sat_str(nba_sat));
+                                if show_counterexample && nba_sat {
+                                    println!("  Counterexample path (NBA):");
+                                    printsimplestack(&stack_path_nba);
+                                    println!("  Counterexample cycle (NBA):");
+                                    printsimplestack(&stack_cycle_nba);
+                                    println!();
+                                }
+                                println!("  GNBA: {}", sat_str(gnba_sat));
+                                if show_counterexample && gnba_sat {
+                                    println!("  Counterexample path (GNBA):");
+                                    printsimplestack(&stack_path_gnba);
+                                    println!("  Counterexample cycle (GNBA):");
+                                    printsimplestack(&stack_cycle_gnba);
+                                }
+                                println!();
                             }
-                        };
-                        println!("  NBA:  {}", sat_str(nba_sat));
-                        if show_counterexample && nba_sat {
-                            println!("  Counterexample path (NBA):");
-                            printsimplestack(&stack_path_nba);
-                            println!("  Counterexample cycle (NBA):");
-                            printsimplestack(&stack_cycle_nba);
-                            println!();
+                            Err(e) => eprintln!("{} {}", "Error:".red().bold(), e),
                         }
-                        println!("  GNBA: {}", sat_str(gnba_sat));
-                        if show_counterexample && gnba_sat {
-                            println!("  Counterexample path (GNBA):");
-                            printsimplestack(&stack_path_gnba);
-                            println!("  Counterexample cycle (GNBA):");
-                            printsimplestack(&stack_cycle_gnba);
-                        }
-                        println!();
                     }
                 }
                 Err(e) => eprintln!("{} {}", "Error:".red().bold(), e),
@@ -549,7 +572,7 @@ fn process_automaton<FHoa, FDot, FPrint>(
     }
 }
 
-fn printstack(stack: &Option<Vec<model_check::CombinedState>>, pnml: &PetriNet) {
+fn printstack(stack: &Option<Vec<emptyness::CombinedState>>, pnml: &PetriNet) {
     if let Some(states) = stack {
         for (idx, state) in states.iter().enumerate() {
             println!(

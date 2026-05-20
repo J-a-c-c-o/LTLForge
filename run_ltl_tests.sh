@@ -9,6 +9,7 @@ set -e
 TIMEOUT=2
 INPUT_DIR="inputs/INPUTS-2025"
 OUTPUT_FILE="results.txt"
+MEMORY_LIMIT="4096"
 VERBOSE=false
 LTL_PATTERNS=("LTLCardinality.txt" "LTLFireability.txt")
 
@@ -17,6 +18,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --timeout)
             TIMEOUT=$2
+            shift 2
+            ;;
+        --memory-limit)
+            MEMORY_LIMIT=$2
             shift 2
             ;;
         --input-dir)
@@ -105,9 +110,8 @@ for test_dir in "$INPUT_DIR"/*/ ; do
         fi
         
         # Run the model checker with simple output and capture result
-        # We turn off set -e temporarily for the binary execution so a crash doesn't kill the script
         set +e
-        result=$("$BINARY" check "$model_file" "$ltl_file" --timeout "$TIMEOUT" --simple 2>&1)
+        result=$("$BINARY" check "$model_file" "$ltl_file" --timeout "$TIMEOUT" --memory-limit "$MEMORY_LIMIT" --simple 2>&1)
         exit_code=$?
         set -e
         
