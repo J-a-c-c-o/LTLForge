@@ -389,8 +389,13 @@ impl<'a> NdfsEngine for ProductNdfs<'a> {
     fn successors(&mut self, state: &Self::State) -> Result<Vec<Self::State>, Self::Error> {
         let mut result = Vec::new();
         let enabled = self.petri_successors_cached(&state.petri_state);
+        let next_markings = if enabled.is_empty() {
+            vec![state.petri_state.clone()]
+        } else {
+            enabled
+        };
 
-        for next_marking in enabled {
+        for next_marking in next_markings {
             let label = self.compute_label_cached(&next_marking);
             let next_nba_states = self.nba.next(state.nba_state, &label);
 
@@ -557,6 +562,7 @@ fn parse_vm_rss_bytes(status: &str) -> Option<u64> {
 mod tests {
     use super::*;
     use crate::ltl_parser::parse_ltl;
+    use crate::petri_net::{PetriNet, Place, Transition};
 
     #[test]
     fn test_emptiness_on_known_formulas() {
@@ -580,5 +586,29 @@ mod tests {
             assert_eq!(check_emptyness_generic(&gnba, &ModelCheckConfig::default()).unwrap().0, expected_empty, "GNBA emptiness mismatch for {formula}");
             assert_eq!(check_emptyness_generic(&nba, &ModelCheckConfig::default()).unwrap().0, expected_empty, "NBA emptiness mismatch for {formula}");
         }
+    }
+
+    #[test]
+    fn test_deadlock_stutters_in_model_checking() {
+        let petri_net = PetriNet {
+            id: "deadlock_net".to_string(),
+            name: "Deadlock Net".to_string(),
+            places: vec![Place {
+                id: "p".to_string(),
+            }],
+            transitions: vec![Transition {
+                id: "t".to_string(),
+                incoming: vec![],
+                outgoing: vec![],
+            }],
+            initial_tokens: vec![0],
+        };
+
+        let (_, formula) = parse_ltl("F p").unwrap();
+        let config = ModelCheckConfig::default();
+
+        let (holds, _, _) = model_check(&petri_net, &formula, &config).unwrap();
+
+        assert!(!holds, "A F p should be violated on a deadlocking net when deadlocks stutter");
     }
 }
