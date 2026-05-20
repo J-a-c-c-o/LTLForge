@@ -1,6 +1,5 @@
-Property Small-LTL
-  "Small hand-written example"
+Property Philosophers-PT-000020-LTLCardinality-02
+  "Automatically generated"
   is:
-    (!(F (p3)) | G (p2))
+    A G !(X (a) U X F G (b))
   end.
-

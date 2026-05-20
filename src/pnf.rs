@@ -198,10 +198,7 @@ fn pnf_simplifications(expr: &mut LTL) {
         }
 
         LTL::Release(left, right) => {
-            if is_tail_property(right) {
-                *expr = *right.clone();
-                pnf_simplifications(expr);
-            } else if let LTL::True = **right {
+            if let LTL::True = **right {
                 *expr = LTL::True;
             } else if let LTL::False = **right {
                 *expr = LTL::False;
@@ -215,10 +212,7 @@ fn pnf_simplifications(expr: &mut LTL) {
         }
         
         LTL::Until(left, right) => {
-            if is_tail_property(right) {
-                *expr = *right.clone();
-                pnf_simplifications(expr);
-            } else if let LTL::False = **right {
+            if let LTL::False = **right {
                 *expr = LTL::False;
             } else if let LTL::True = **right {
                 *expr = LTL::True;
@@ -232,20 +226,15 @@ fn pnf_simplifications(expr: &mut LTL) {
         }
 
         LTL::Next(inner) => {
-            if is_tail_property(inner) {
-                *expr = *inner.clone();
-                pnf_simplifications(expr);
-            } else {
-                match &**inner {
-                    LTL::False => {
-                        *expr = LTL::False
-                    }
-                    LTL::True => {
-                        *expr = LTL::True
-                    }
-                    _ => {
-                        pnf_simplifications(inner);
-                    }
+            match &**inner {
+                LTL::False => {
+                    *expr = LTL::False
+                }
+                LTL::True => {
+                    *expr = LTL::True
+                }
+                _ => {
+                    pnf_simplifications(inner);
                 }
             }
         }
@@ -312,17 +301,6 @@ fn pnf_simplifications(expr: &mut LTL) {
         }
 
         _ => {}
-    }
-}
-
-
-fn is_tail_property(ltl: &LTL) -> bool {
-    match ltl {
-        LTL::Eventually(inner) => matches!(**inner, LTL::Globally(_)),
-        LTL::Globally(inner) => matches!(**inner, LTL::Eventually(_)),
-        LTL::Until(left, right) => matches!(**left, LTL::True) && is_tail_property(right),
-        LTL::Release(left, right) => matches!(**left, LTL::False) && is_tail_property(right),
-        _ => false,
     }
 }
 
