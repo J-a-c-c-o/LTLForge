@@ -193,11 +193,10 @@ where
             return Ok(false);
         }
 
-        if ctx.get_color(&t) == StateColor::White {
-            if dfs_blue_with_stop(ctx, t, stop)? {
+        if ctx.get_color(&t) == StateColor::White
+            && dfs_blue_with_stop(ctx, t, stop)? {
                 return Ok(true);
             }
-        }
     }
 
     if ctx.problem.is_accepting(&s) {
@@ -503,7 +502,7 @@ where
         .unwrap_or(1)
         .min(roots.len())
         .max(1);
-    let chunk_size = (roots.len() + worker_count - 1) / worker_count;
+    let chunk_size = roots.len().div_ceil(worker_count);
     const WORKER_STACK_SIZE: usize = 1024 * 1024 * 1024;
     let stop = AtomicBool::new(false);
     let (tx, rx) = mpsc::channel();

@@ -184,16 +184,15 @@ impl GNBA {
     pub fn to_hoa(&self) -> String {
         let mut hoa = String::new();
 
-        let ap_formulas: Vec<&LTL> = self.closure.iter().filter(|f| match f {
+        let ap_formulas: Vec<&LTL> = self.closure.iter().filter(|f| matches!(f,
             LTL::Var(_)
             | LTL::TokenCount(_)
             | LTL::Fireable(_)
             | LTL::LessEqual(_, _)
             | LTL::GreaterEqual(_, _)
             | LTL::Greater(_, _)
-            | LTL::Less(_, _) => true,
-            _ => false,
-        }).collect();
+            | LTL::Less(_, _)
+        )).collect();
 
         hoa.push_str("HOA: v1\n");
         hoa.push_str(&format!("States: {}\n", self.states.len()));
@@ -207,7 +206,7 @@ impl GNBA {
             let name = format!("{}", f).replace('"', "\\\"");
             hoa.push_str(&format!("\"{}\" ", name));
         }
-        hoa.push_str("\n");
+        hoa.push('\n');
 
         let acc_count = self.acceptance_conditions.len();
         if acc_count == 0 {

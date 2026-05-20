@@ -305,7 +305,7 @@ fn main() {
                                 } else {
                                     eprintln!(
                                         "{}",
-                                        format!("  ERROR: Could not determine memory usage")
+                                        "  ERROR: Could not determine memory usage".to_string()
                                             .red()
                                             .bold()
                                     );
@@ -536,8 +536,8 @@ fn process_automaton<FHoa, FDot, FPrint>(
                             .args(["-Tpng", &filename, "-o", &output_png])
                             .status();
 
-                        if let Ok(s) = status {
-                            if s.success() {
+                        if let Ok(s) = status
+                            && s.success() {
                                 println!(
                                     "  {} {}",
                                     "Generated PNG:".green(),
@@ -551,7 +551,6 @@ fn process_automaton<FHoa, FDot, FPrint>(
                                     }
                                 }
                             }
-                        }
                     }
                 } else {
                     pretty_print(&formula);
