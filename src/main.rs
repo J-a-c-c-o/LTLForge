@@ -232,7 +232,7 @@ fn main() {
                 Ok(formulas) => {
                     let mut summary = Vec::new();
                     let mut simple_output = String::new();
-                    
+
                     for (name, formula) in formulas {
                         if !simple {
                             println!(
@@ -241,7 +241,7 @@ fn main() {
                                 formula.to_string().italic()
                             );
                         }
-                        
+
                         match emptyness::model_check(petri_net, &formula, &config) {
                             Ok((result, counterexample_path, counterexample_cycle)) => {
                                 summary.push((name.clone(), Ok(result)));
@@ -276,9 +276,12 @@ fn main() {
                                 } else {
                                     eprintln!(
                                         "{}",
-                                        format!("  ERROR: Model checking timed out after {}s", timeout)
-                                            .red()
-                                            .bold()
+                                        format!(
+                                            "  ERROR: Model checking timed out after {}s",
+                                            timeout
+                                        )
+                                        .red()
+                                        .bold()
                                     );
                                 }
                                 summary.push((name.clone(), Err("Timeout".to_string())));
@@ -305,19 +308,23 @@ fn main() {
                                 } else {
                                     eprintln!(
                                         "{}",
-                                        "  ERROR: Could not determine memory usage".to_string()
+                                        "  ERROR: Could not determine memory usage"
+                                            .to_string()
                                             .red()
                                             .bold()
                                     );
                                 }
-                                summary.push((name.clone(), Err("Could not determine memory usage".to_string())));
+                                summary.push((
+                                    name.clone(),
+                                    Err("Could not determine memory usage".to_string()),
+                                ));
                             }
                         }
                         if !simple {
                             println!();
                         }
                     }
-                    
+
                     if simple {
                         println!("{}", simple_output);
                     } else {
@@ -326,7 +333,9 @@ fn main() {
                             match result {
                                 Ok(true) => println!("  - {}: {}", name, "Holds ✔".green()),
                                 Ok(false) => println!("  - {}: {}", name, "Violated ✘".red()),
-                                Err(e) => println!("  - {}: {}", name, format!("Error ({})", e).red()),
+                                Err(e) => {
+                                    println!("  - {}: {}", name, format!("Error ({})", e).red())
+                                }
                             }
                         }
                     }
@@ -439,7 +448,10 @@ fn main() {
                         println!("{}", format!("[{}]", name).magenta().bold());
                         println!("  {} {}", "Formula:".blue(), formula);
                         match emptyness::is_satisfiable(&formula, &config) {
-                            Ok(((nba_sat, stack_path_nba, stack_cycle_nba), (gnba_sat, stack_path_gnba, stack_cycle_gnba))) => {
+                            Ok((
+                                (nba_sat, stack_path_nba, stack_cycle_nba),
+                                (gnba_sat, stack_path_gnba, stack_cycle_gnba),
+                            )) => {
                                 let sat_str = |val: bool| {
                                     if val {
                                         "Satisfiable".green().bold()
@@ -537,20 +549,17 @@ fn process_automaton<FHoa, FDot, FPrint>(
                             .status();
 
                         if let Ok(s) = status
-                            && s.success() {
-                                println!(
-                                    "  {} {}",
-                                    "Generated PNG:".green(),
-                                    output_png.underline()
-                                );
-                                if view || viewer.is_some() {
-                                    if let Some(v) = &viewer {
-                                        let _ = open::with(&output_png, v);
-                                    } else {
-                                        let _ = open::that(&output_png);
-                                    }
+                            && s.success()
+                        {
+                            println!("  {} {}", "Generated PNG:".green(), output_png.underline());
+                            if view || viewer.is_some() {
+                                if let Some(v) = &viewer {
+                                    let _ = open::with(&output_png, v);
+                                } else {
+                                    let _ = open::that(&output_png);
                                 }
                             }
+                        }
                     }
                 } else {
                     pretty_print(&formula);

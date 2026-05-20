@@ -1,8 +1,8 @@
 use crate::builder::PetriNetBuilder;
 use crate::petri_net::PetriNet;
 
-use std::collections::VecDeque;
 use rustc_hash::FxHashSet;
+use std::collections::VecDeque;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 enum Stage {

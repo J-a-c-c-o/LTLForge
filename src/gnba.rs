@@ -53,8 +53,6 @@ impl GNBA {
         &self.transitions[state_id].transitions
     }
 
-
-
     pub fn is_accepting(&self, state_id: usize) -> bool {
         self.acceptance_conditions
             .iter()
@@ -66,11 +64,14 @@ impl GNBA {
     }
 
     fn generate_transitions(&self) -> Vec<Transitions> {
-        let mut transitions = vec![Transitions {
-            transitions: Vec::new(),
-            label: Vec::new(),
-        }; self.states.len()];
-        
+        let mut transitions = vec![
+            Transitions {
+                transitions: Vec::new(),
+                label: Vec::new(),
+            };
+            self.states.len()
+        ];
+
         for from_idx in 0..self.states.len() {
             let label = self.label(from_idx);
             for to_idx in 0..self.states.len() {
@@ -90,7 +91,10 @@ impl GNBA {
         println!("GNBA:");
         println!("States: {}", self.states.len());
         println!("Initial States: {}", self.initial_states.len());
-        println!("Acceptance Conditions: {}", self.acceptance_conditions.len());
+        println!(
+            "Acceptance Conditions: {}",
+            self.acceptance_conditions.len()
+        );
         println!("Transitions: {}", self.transitions.len());
     }
 
@@ -180,19 +184,25 @@ impl GNBA {
         s
     }
 
-
     pub fn to_hoa(&self) -> String {
         let mut hoa = String::new();
 
-        let ap_formulas: Vec<&LTL> = self.closure.iter().filter(|f| matches!(f,
-            LTL::Var(_)
-            | LTL::TokenCount(_)
-            | LTL::Fireable(_)
-            | LTL::LessEqual(_, _)
-            | LTL::GreaterEqual(_, _)
-            | LTL::Greater(_, _)
-            | LTL::Less(_, _)
-        )).collect();
+        let ap_formulas: Vec<&LTL> = self
+            .closure
+            .iter()
+            .filter(|f| {
+                matches!(
+                    f,
+                    LTL::Var(_)
+                        | LTL::TokenCount(_)
+                        | LTL::Fireable(_)
+                        | LTL::LessEqual(_, _)
+                        | LTL::GreaterEqual(_, _)
+                        | LTL::Greater(_, _)
+                        | LTL::Less(_, _)
+                )
+            })
+            .collect();
 
         hoa.push_str("HOA: v1\n");
         hoa.push_str(&format!("States: {}\n", self.states.len()));
@@ -214,7 +224,9 @@ impl GNBA {
         } else {
             let mut acc_expr = String::new();
             for i in 0..acc_count {
-                if i > 0 { acc_expr.push_str(" & "); }
+                if i > 0 {
+                    acc_expr.push_str(" & ");
+                }
                 acc_expr.push_str(&format!("Inf({})", i));
             }
             hoa.push_str(&format!("Acceptance: {} {}\n", acc_count, acc_expr));
@@ -253,7 +265,7 @@ impl GNBA {
                         label_parts.push(format!("!{}", i));
                     }
                 }
-                
+
                 let label_str = if label_parts.is_empty() {
                     "[t]".to_string()
                 } else {
@@ -447,16 +459,15 @@ mod tests {
         assert_eq!(gnba.acceptance_conditions.len(), 1);
     }
 
-
     #[test]
     fn test_gnba_spot_equivalent() {
         use std::fs;
-        use std::process::Command;
         use std::path::Path;
+        use std::process::Command;
 
-        let spot_bin = std::env::var("SPOT_PATH")
-            .unwrap_or_else(|_| "./spot-2.15.1/bin".to_string());
-        
+        let spot_bin =
+            std::env::var("SPOT_PATH").unwrap_or_else(|_| "./spot-2.15.1/bin".to_string());
+
         if !Path::new(&spot_bin).exists() {
             eprintln!("Spot not found at {}, skipping test", spot_bin);
             return;
@@ -471,42 +482,40 @@ mod tests {
         for (i, formula) in test_formulas.iter().enumerate() {
             let gnba = GNBA::new(formula);
             let hoa_content = gnba.to_hoa();
-            
+
             let our_hoa = format!("/tmp/test_gnba_{}.hoa", i);
             let ref_hoa = format!("/tmp/test_gnba_{}_ref.hoa", i);
-            
-            fs::write(&our_hoa, &hoa_content)
-                .expect("Failed to write GNBA HOA file");
-            
+
+            fs::write(&our_hoa, &hoa_content).expect("Failed to write GNBA HOA file");
+
             let formula_str = formula_to_spot_ltl(formula);
-            
+
             let ltl2tgba = format!("{}/ltl2tgba", spot_bin);
             let output = Command::new(&ltl2tgba)
                 .arg("-H")
                 .arg(&formula_str)
                 .output()
                 .expect("Failed to run ltl2tgba");
-            
+
             if !output.status.success() {
                 eprintln!("ltl2tgba failed for formula: {}", formula_str);
                 eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
                 fs::remove_file(&our_hoa).ok();
                 continue;
             }
-            
-            fs::write(&ref_hoa, &output.stdout)
-                .expect("Failed to write reference HOA file");
-            
+
+            fs::write(&ref_hoa, &output.stdout).expect("Failed to write reference HOA file");
+
             let autfilt = format!("{}/autfilt", spot_bin);
             let equiv_check = Command::new(&autfilt)
                 .arg(format!("--equivalent-to={}", our_hoa))
                 .arg(&ref_hoa)
                 .output()
                 .expect("Failed to run autfilt");
-            
+
             fs::remove_file(&our_hoa).ok();
             fs::remove_file(&ref_hoa).ok();
-            
+
             assert!(
                 equiv_check.status.success(),
                 "Formula {} not equivalent: GNBA vs Spot reference\nFormula: {}\nStdout: {}\nStderr: {}",
@@ -524,21 +533,43 @@ mod tests {
             LTL::False => "0".to_string(),
             LTL::Var(name) => name.clone(),
             LTL::Not(inner) => format!("(!({}))", formula_to_spot_ltl(inner)),
-            LTL::And(left, right) => format!("({} & {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
-            LTL::Or(left, right) => format!("({} | {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
+            LTL::And(left, right) => format!(
+                "({} & {})",
+                formula_to_spot_ltl(left),
+                formula_to_spot_ltl(right)
+            ),
+            LTL::Or(left, right) => format!(
+                "({} | {})",
+                formula_to_spot_ltl(left),
+                formula_to_spot_ltl(right)
+            ),
             LTL::Next(inner) => format!("(X ({}))", formula_to_spot_ltl(inner)),
             LTL::Eventually(inner) => format!("(F ({}))", formula_to_spot_ltl(inner)),
             LTL::Globally(inner) => format!("(G ({}))", formula_to_spot_ltl(inner)),
-            LTL::Until(left, right) => format!("({} U {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
-            LTL::Release(left, right) => format!("({} R {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
-            LTL::WeakUntil(left, right) => format!("({} W {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
-            LTL::TokenCount(_) | LTL::Fireable(_) | LTL::LessEqual(_, _) | LTL::GreaterEqual(_, _) | LTL::Greater(_, _) | LTL::Less(_, _) => {
-                "1".to_string()
-            }
+            LTL::Until(left, right) => format!(
+                "({} U {})",
+                formula_to_spot_ltl(left),
+                formula_to_spot_ltl(right)
+            ),
+            LTL::Release(left, right) => format!(
+                "({} R {})",
+                formula_to_spot_ltl(left),
+                formula_to_spot_ltl(right)
+            ),
+            LTL::WeakUntil(left, right) => format!(
+                "({} W {})",
+                formula_to_spot_ltl(left),
+                formula_to_spot_ltl(right)
+            ),
+            LTL::TokenCount(_)
+            | LTL::Fireable(_)
+            | LTL::LessEqual(_, _)
+            | LTL::GreaterEqual(_, _)
+            | LTL::Greater(_, _)
+            | LTL::Less(_, _) => "1".to_string(),
             _ => "1".to_string(),
         }
     }
-
 
     fn random_ltl(depth: usize) -> LTL {
         if depth == 0 {
@@ -549,17 +580,33 @@ mod tests {
         let choice = rand::random_range(0..10);
         match choice {
             0 => LTL::Not(Box::new(random_ltl(depth - 1))),
-            1 => LTL::And(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
-            2 => LTL::Or(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
-            3 => LTL::Or(Box::new(LTL::Not(Box::new(random_ltl(depth - 1)))), Box::new(random_ltl(depth - 1))),
+            1 => LTL::And(
+                Box::new(random_ltl(depth - 1)),
+                Box::new(random_ltl(depth - 1)),
+            ),
+            2 => LTL::Or(
+                Box::new(random_ltl(depth - 1)),
+                Box::new(random_ltl(depth - 1)),
+            ),
+            3 => LTL::Or(
+                Box::new(LTL::Not(Box::new(random_ltl(depth - 1)))),
+                Box::new(random_ltl(depth - 1)),
+            ),
             4 => LTL::Next(Box::new(random_ltl(depth - 1))),
             5 => LTL::Eventually(Box::new(random_ltl(depth - 1))),
             6 => LTL::Globally(Box::new(random_ltl(depth - 1))),
-            7 => LTL::Until(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
-            8 => LTL::Release(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
-            _ => LTL::WeakUntil(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
+            7 => LTL::Until(
+                Box::new(random_ltl(depth - 1)),
+                Box::new(random_ltl(depth - 1)),
+            ),
+            8 => LTL::Release(
+                Box::new(random_ltl(depth - 1)),
+                Box::new(random_ltl(depth - 1)),
+            ),
+            _ => LTL::WeakUntil(
+                Box::new(random_ltl(depth - 1)),
+                Box::new(random_ltl(depth - 1)),
+            ),
         }
     }
 }
-
-

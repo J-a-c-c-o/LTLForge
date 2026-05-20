@@ -37,14 +37,16 @@ pub fn model_check(
     ))
 }
 
-
 pub fn is_satisfiable(
     ltl: &LTL,
     config: &ModelCheckConfig,
-) -> Result<(
-    (bool, Option<Vec<usize>>, Option<Vec<usize>>),
-    (bool, Option<Vec<usize>>, Option<Vec<usize>>),
-), ModelCheckError> {
+) -> Result<
+    (
+        (bool, Option<Vec<usize>>, Option<Vec<usize>>),
+        (bool, Option<Vec<usize>>, Option<Vec<usize>>),
+    ),
+    ModelCheckError,
+> {
     let gnba = GNBA::new(ltl);
     let nba = NBA::new(ltl);
     let nba_empty = check_emptyness_generic(&nba, config)?;
@@ -54,7 +56,6 @@ pub fn is_satisfiable(
         (!gnba_empty.0, gnba_empty.1, gnba_empty.2),
     ))
 }
-
 
 #[derive(Clone, Debug)]
 pub struct ModelCheckConfig {
@@ -193,10 +194,9 @@ where
             return Ok(false);
         }
 
-        if ctx.get_color(&t) == StateColor::White
-            && dfs_blue_with_stop(ctx, t, stop)? {
-                return Ok(true);
-            }
+        if ctx.get_color(&t) == StateColor::White && dfs_blue_with_stop(ctx, t, stop)? {
+            return Ok(true);
+        }
     }
 
     if ctx.problem.is_accepting(&s) {
@@ -341,7 +341,8 @@ fn check_emptyness_generic<A: Automaton + Sync>(
     config: &ModelCheckConfig,
 ) -> Result<(bool, Option<Vec<usize>>, Option<Vec<usize>>), ModelCheckError> {
     let roots = automaton.initial_states();
-    let (found, stack, stack2) = run_ndfs_parallel(roots, || AutomatonNdfs::new(automaton, config))?;
+    let (found, stack, stack2) =
+        run_ndfs_parallel(roots, || AutomatonNdfs::new(automaton, config))?;
 
     if found {
         Ok((false, stack, stack2))
@@ -517,24 +518,24 @@ where
             std::thread::Builder::new()
                 .stack_size(WORKER_STACK_SIZE)
                 .spawn_scoped(scope, move || {
-                if should_stop(Some(stop)) {
-                    return;
-                }
+                    if should_stop(Some(stop)) {
+                        return;
+                    }
 
-                let mut problem = make_problem();
-                match run_ndfs(&mut problem, chunk, Some(stop)) {
-                    Ok(result @ (true, _, _)) => {
-                        stop.store(true, Ordering::Relaxed);
-                        let _ = tx.send(Ok(result));
+                    let mut problem = make_problem();
+                    match run_ndfs(&mut problem, chunk, Some(stop)) {
+                        Ok(result @ (true, _, _)) => {
+                            stop.store(true, Ordering::Relaxed);
+                            let _ = tx.send(Ok(result));
+                        }
+                        Ok(result) => {
+                            let _ = tx.send(Ok(result));
+                        }
+                        Err(err) => {
+                            stop.store(true, Ordering::Relaxed);
+                            let _ = tx.send(Err(err));
+                        }
                     }
-                    Ok(result) => {
-                        let _ = tx.send(Ok(result));
-                    }
-                    Err(err) => {
-                        stop.store(true, Ordering::Relaxed);
-                        let _ = tx.send(Err(err));
-                    }
-                }
                 })
                 .expect("failed to spawn model-checking worker thread");
         }
@@ -564,7 +565,6 @@ where
         Ok((false, None, None))
     })
 }
-
 
 fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool> {
     fn eval_num(expr: &LTL, petri: &PetriNet, marking: &PetriState) -> Option<i64> {
@@ -700,8 +700,20 @@ mod tests {
             let gnba = GNBA::new(&ltl);
             let nba = NBA::new(&ltl);
 
-            assert_eq!(check_emptyness_generic(&gnba, &ModelCheckConfig::default()).unwrap().0, expected_empty, "GNBA emptiness mismatch for {formula}");
-            assert_eq!(check_emptyness_generic(&nba, &ModelCheckConfig::default()).unwrap().0, expected_empty, "NBA emptiness mismatch for {formula}");
+            assert_eq!(
+                check_emptyness_generic(&gnba, &ModelCheckConfig::default())
+                    .unwrap()
+                    .0,
+                expected_empty,
+                "GNBA emptiness mismatch for {formula}"
+            );
+            assert_eq!(
+                check_emptyness_generic(&nba, &ModelCheckConfig::default())
+                    .unwrap()
+                    .0,
+                expected_empty,
+                "NBA emptiness mismatch for {formula}"
+            );
         }
     }
 
@@ -726,6 +738,9 @@ mod tests {
 
         let (holds, _, _) = model_check(&petri_net, &formula, &config).unwrap();
 
-        assert!(!holds, "A F p should be violated on a deadlocking net when deadlocks stutter");
+        assert!(
+            !holds,
+            "A F p should be violated on a deadlocking net when deadlocks stutter"
+        );
     }
 }

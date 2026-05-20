@@ -1,7 +1,7 @@
 use crate::gnba::GNBA;
 use crate::ltl_parser::LTL;
-use std::collections::VecDeque;
 use rustc_hash::{FxHashMap, FxHashSet};
+use std::collections::VecDeque;
 
 pub struct NBA {
     pub closure: Vec<LTL>,
@@ -24,7 +24,6 @@ pub struct Transitions {
     pub transitions: Vec<usize>,
     pub label: Vec<Vec<bool>>,
 }
-
 
 pub struct AcceptanceCondition {
     pub states: Vec<usize>,
@@ -113,8 +112,7 @@ impl NBA {
     }
 
     pub fn successors(&self, state_id: usize) -> &[usize] {
-        &self.transitions[state_id]
-            .transitions
+        &self.transitions[state_id].transitions
     }
 
     fn gnba_state_label(&self, gnba_state_id: usize) -> Vec<bool> {
@@ -218,10 +216,13 @@ impl NBA {
             .filter_map(|&old_id| old_to_new[old_id])
             .collect();
 
-        let mut new_transitions = vec![Transitions {
-            transitions: Vec::new(),
-            label: Vec::new(),
-        }; new_states.len()];
+        let mut new_transitions = vec![
+            Transitions {
+                transitions: Vec::new(),
+                label: Vec::new(),
+            };
+            new_states.len()
+        ];
 
         for old_from in 0..old_transitions.len() {
             let Some(new_from) = old_to_new[old_from] else {
@@ -297,7 +298,16 @@ impl NBA {
 
         for v in 0..n {
             if index[v].is_none() {
-                strongconnect(v, nba, &mut index, &mut lowlink, &mut stack, &mut onstack, &mut current_index, &mut sccs);
+                strongconnect(
+                    v,
+                    nba,
+                    &mut index,
+                    &mut lowlink,
+                    &mut stack,
+                    &mut onstack,
+                    &mut current_index,
+                    &mut sccs,
+                );
             }
         }
 
@@ -306,11 +316,14 @@ impl NBA {
 
     /// Generates transitions for the NBA based on the states and closure
     fn generate_transitions(&self) -> Vec<Transitions> {
-        let mut transitions = vec![Transitions {
-            transitions: Vec::new(),
-            label: Vec::new(),
-        }; self.states.len()];
-        
+        let mut transitions = vec![
+            Transitions {
+                transitions: Vec::new(),
+                label: Vec::new(),
+            };
+            self.states.len()
+        ];
+
         for from_new_id in 0..self.states.len() {
             let (orig_state_id, acc_id, _) = self.new_to_gnba[from_new_id];
             let label = self.gnba.label(orig_state_id);
@@ -319,9 +332,7 @@ impl NBA {
                 continue;
             }
 
-            let next_acc_id = if self
-                .gnba
-                .acceptance_conditions[acc_id]
+            let next_acc_id = if self.gnba.acceptance_conditions[acc_id]
                 .states
                 .contains(&orig_state_id)
             {
@@ -346,7 +357,10 @@ impl NBA {
         println!("NBA:");
         println!("States: {}", self.states.len());
         println!("Initial States: {}", self.initial_states.len());
-        println!("Accepting States: {}", self.acceptance_condition.states.len());
+        println!(
+            "Accepting States: {}",
+            self.acceptance_condition.states.len()
+        );
         println!("Transitions: {}", self.transitions.len());
     }
 
@@ -440,15 +454,22 @@ impl NBA {
     pub fn to_hoa(&self) -> String {
         let mut hoa = String::new();
 
-        let ap_formulas: Vec<&LTL> = self.closure.iter().filter(|f| matches!(f,
-            LTL::Var(_)
-            | LTL::TokenCount(_)
-            | LTL::Fireable(_)
-            | LTL::LessEqual(_, _)
-            | LTL::GreaterEqual(_, _)
-            | LTL::Greater(_, _)
-            | LTL::Less(_, _)
-        )).collect();
+        let ap_formulas: Vec<&LTL> = self
+            .closure
+            .iter()
+            .filter(|f| {
+                matches!(
+                    f,
+                    LTL::Var(_)
+                        | LTL::TokenCount(_)
+                        | LTL::Fireable(_)
+                        | LTL::LessEqual(_, _)
+                        | LTL::GreaterEqual(_, _)
+                        | LTL::Greater(_, _)
+                        | LTL::Less(_, _)
+                )
+            })
+            .collect();
 
         hoa.push_str("HOA: v1\n");
         hoa.push_str(&format!("States: {}\n", self.states.len()));
@@ -465,9 +486,8 @@ impl NBA {
         }
         hoa.push('\n');
 
-
         hoa.push_str("Acceptance: 1 Inf(0)\n");
-        
+
         hoa.push_str("properties: trans-labels explicit-labels state-acc\n");
         hoa.push_str("--BODY--\n");
 
@@ -506,7 +526,6 @@ impl NBA {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -518,18 +537,48 @@ mod tests {
         let mut nba = NBA {
             closure: vec![],
             states: vec![
-                State { id: 0, formulas: vec![] },
-                State { id: 1, formulas: vec![] },
-                State { id: 2, formulas: vec![] },
-                State { id: 3, formulas: vec![] },
-                State { id: 4, formulas: vec![] },
+                State {
+                    id: 0,
+                    formulas: vec![],
+                },
+                State {
+                    id: 1,
+                    formulas: vec![],
+                },
+                State {
+                    id: 2,
+                    formulas: vec![],
+                },
+                State {
+                    id: 3,
+                    formulas: vec![],
+                },
+                State {
+                    id: 4,
+                    formulas: vec![],
+                },
             ],
             transitions: vec![
-                Transitions { transitions: vec![1, 3], label: vec![vec![], vec![]] },
-                Transitions { transitions: vec![2], label: vec![vec![]] },
-                Transitions { transitions: vec![], label: vec![] },
-                Transitions { transitions: vec![4], label: vec![vec![]] },
-                Transitions { transitions: vec![4], label: vec![vec![]] },
+                Transitions {
+                    transitions: vec![1, 3],
+                    label: vec![vec![], vec![]],
+                },
+                Transitions {
+                    transitions: vec![2],
+                    label: vec![vec![]],
+                },
+                Transitions {
+                    transitions: vec![],
+                    label: vec![],
+                },
+                Transitions {
+                    transitions: vec![4],
+                    label: vec![vec![]],
+                },
+                Transitions {
+                    transitions: vec![4],
+                    label: vec![vec![]],
+                },
             ],
             initial_states: vec![0],
             acceptance_condition: AcceptanceCondition { states: vec![2, 4] },
@@ -558,13 +607,13 @@ mod tests {
     #[test]
     fn test_nba_spot_equivalent() {
         use std::fs;
-        use std::process::Command;
         use std::path::Path;
+        use std::process::Command;
 
         // Spot installation path
-        let spot_bin = std::env::var("SPOT_PATH")
-            .unwrap_or_else(|_| "./spot-2.15.1/bin".to_string());
-        
+        let spot_bin =
+            std::env::var("SPOT_PATH").unwrap_or_else(|_| "./spot-2.15.1/bin".to_string());
+
         if !Path::new(&spot_bin).exists() {
             eprintln!("Spot not found at {}, skipping test", spot_bin);
             return;
@@ -579,42 +628,39 @@ mod tests {
         for (i, formula) in test_formulas.iter().enumerate() {
             let nba = NBA::new(formula);
             let hoa_content = nba.to_hoa();
-            
+
             let our_hoa = format!("/tmp/test_NBA_{}.hoa", i);
             let ref_hoa = format!("/tmp/test_NBA_{}_ref.hoa", i);
-            
-            fs::write(&our_hoa, &hoa_content)
-                .expect("Failed to write NBA HOA file");
-            
+
+            fs::write(&our_hoa, &hoa_content).expect("Failed to write NBA HOA file");
+
             let formula_str = formula_to_spot_ltl(formula);
-            
+
             let ltl2tgba = format!("{}/ltl2tgba", spot_bin);
             let output = Command::new(&ltl2tgba)
                 .arg("-H")
                 .arg(&formula_str)
                 .output()
                 .expect("Failed to run ltl2tgba");
-            
+
             if !output.status.success() {
                 eprintln!("ltl2tgba failed for formula: {}", formula_str);
                 eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
                 fs::remove_file(&our_hoa).ok();
                 continue;
             }
-            
-            fs::write(&ref_hoa, &output.stdout)
-                .expect("Failed to write reference HOA file");
-            
+
+            fs::write(&ref_hoa, &output.stdout).expect("Failed to write reference HOA file");
+
             let autfilt = format!("{}/autfilt", spot_bin);
             let equiv_check = Command::new(&autfilt)
                 .arg(format!("--equivalent-to={}", our_hoa))
                 .arg(&ref_hoa)
                 .output()
                 .expect("Failed to run autfilt");
-            
+
             fs::remove_file(&our_hoa).ok();
             fs::remove_file(&ref_hoa).ok();
-            
 
             assert!(
                 equiv_check.status.success(),
@@ -633,22 +679,43 @@ mod tests {
             LTL::False => "0".to_string(),
             LTL::Var(name) => name.clone(),
             LTL::Not(inner) => format!("!({})", formula_to_spot_ltl(inner)),
-            LTL::And(left, right) => format!("({} & {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
-            LTL::Or(left, right) => format!("({} | {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
+            LTL::And(left, right) => format!(
+                "({} & {})",
+                formula_to_spot_ltl(left),
+                formula_to_spot_ltl(right)
+            ),
+            LTL::Or(left, right) => format!(
+                "({} | {})",
+                formula_to_spot_ltl(left),
+                formula_to_spot_ltl(right)
+            ),
             LTL::Next(inner) => format!("X ({})", formula_to_spot_ltl(inner)),
             LTL::Eventually(inner) => format!("F ({})", formula_to_spot_ltl(inner)),
             LTL::Globally(inner) => format!("G ({})", formula_to_spot_ltl(inner)),
-            LTL::Until(left, right) => format!("({} U {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
-            LTL::Release(left, right) => format!("({} R {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
-            LTL::WeakUntil(left, right) => format!("({} W {})", formula_to_spot_ltl(left), formula_to_spot_ltl(right)),
-            LTL::TokenCount(_) | LTL::Fireable(_) | LTL::LessEqual(_, _) | LTL::GreaterEqual(_, _) | LTL::Greater(_, _) | LTL::Less(_, _) => {
-                "1".to_string()
-            }
+            LTL::Until(left, right) => format!(
+                "({} U {})",
+                formula_to_spot_ltl(left),
+                formula_to_spot_ltl(right)
+            ),
+            LTL::Release(left, right) => format!(
+                "({} R {})",
+                formula_to_spot_ltl(left),
+                formula_to_spot_ltl(right)
+            ),
+            LTL::WeakUntil(left, right) => format!(
+                "({} W {})",
+                formula_to_spot_ltl(left),
+                formula_to_spot_ltl(right)
+            ),
+            LTL::TokenCount(_)
+            | LTL::Fireable(_)
+            | LTL::LessEqual(_, _)
+            | LTL::GreaterEqual(_, _)
+            | LTL::Greater(_, _)
+            | LTL::Less(_, _) => "1".to_string(),
             _ => "1".to_string(),
         }
     }
-
-
 
     fn random_ltl(depth: usize) -> LTL {
         if depth == 0 {
@@ -659,15 +726,33 @@ mod tests {
         let choice = rand::random_range(0..10);
         match choice {
             0 => LTL::Not(Box::new(random_ltl(depth - 1))),
-            1 => LTL::And(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
-            2 => LTL::Or(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
-            3 => LTL::Or(Box::new(LTL::Not(Box::new(random_ltl(depth - 1)))), Box::new(random_ltl(depth - 1))),
+            1 => LTL::And(
+                Box::new(random_ltl(depth - 1)),
+                Box::new(random_ltl(depth - 1)),
+            ),
+            2 => LTL::Or(
+                Box::new(random_ltl(depth - 1)),
+                Box::new(random_ltl(depth - 1)),
+            ),
+            3 => LTL::Or(
+                Box::new(LTL::Not(Box::new(random_ltl(depth - 1)))),
+                Box::new(random_ltl(depth - 1)),
+            ),
             4 => LTL::Next(Box::new(random_ltl(depth - 1))),
             5 => LTL::Eventually(Box::new(random_ltl(depth - 1))),
             6 => LTL::Globally(Box::new(random_ltl(depth - 1))),
-            7 => LTL::Until(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
-            8 => LTL::Release(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
-            _ => LTL::WeakUntil(Box::new(random_ltl(depth - 1)), Box::new(random_ltl(depth - 1))),
+            7 => LTL::Until(
+                Box::new(random_ltl(depth - 1)),
+                Box::new(random_ltl(depth - 1)),
+            ),
+            8 => LTL::Release(
+                Box::new(random_ltl(depth - 1)),
+                Box::new(random_ltl(depth - 1)),
+            ),
+            _ => LTL::WeakUntil(
+                Box::new(random_ltl(depth - 1)),
+                Box::new(random_ltl(depth - 1)),
+            ),
         }
     }
 }

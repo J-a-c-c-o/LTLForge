@@ -126,7 +126,10 @@ fn parse_expr_implies(input: &str) -> IResult<&str, LTL> {
     let (input, lhs) = parse_expr_or(input)?;
 
     if let Ok((next_input, rhs)) = preceded(ws(tag("->")), parse_expr_implies).parse(input) {
-        Ok((next_input, LTL::Or(Box::new(LTL::Not(Box::new(lhs))), Box::new(rhs))))
+        Ok((
+            next_input,
+            LTL::Or(Box::new(LTL::Not(Box::new(lhs))), Box::new(rhs)),
+        ))
     } else {
         Ok((input, lhs))
     }
@@ -352,7 +355,10 @@ fn parse_implies(input: &str) -> IResult<&str, LTL> {
     let (input, lhs) = parse_or(input)?;
 
     if let Ok((next_input, rhs)) = preceded(ws(tag("->")), parse_implies).parse(input) {
-        Ok((next_input, LTL::Or(Box::new(LTL::Not(Box::new(lhs))), Box::new(rhs))))
+        Ok((
+            next_input,
+            LTL::Or(Box::new(LTL::Not(Box::new(lhs))), Box::new(rhs)),
+        ))
     } else {
         Ok((input, lhs))
     }
@@ -397,8 +403,6 @@ fn parse_mighty_release(input: &str) -> IResult<&str, LTL> {
         Ok((input, lhs))
     }
 }
-
-
 
 pub(crate) fn parse_ltl(input: &str) -> IResult<&str, LTL> {
     let (input, ltl) = parse_mighty_release(input)?;

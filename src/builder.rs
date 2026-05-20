@@ -72,8 +72,7 @@ impl PetriNetBuilder {
         };
 
         let mut place_indices: FxHashMap<String, u32> = FxHashMap::default();
-        let mut transition_indices: FxHashMap<String, u32> =
-            FxHashMap::default();
+        let mut transition_indices: FxHashMap<String, u32> = FxHashMap::default();
 
         for (index, node_builder) in self.nodes.into_iter().enumerate() {
             place_indices.insert(node_builder.id.clone(), index as u32);
