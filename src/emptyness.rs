@@ -577,8 +577,8 @@ mod tests {
             let gnba = GNBA::new(&ltl);
             let nba = NBA::new(&ltl);
 
-            assert_eq!(check_emptyness_gnba(&gnba, &ModelCheckConfig::default()).unwrap().0, expected_empty, "GNBA emptiness mismatch for {formula}");
-            assert_eq!(check_emptyness_nba(&nba, &ModelCheckConfig::default()).unwrap().0, expected_empty, "NBA emptiness mismatch for {formula}");
+            assert_eq!(check_emptyness_generic(&gnba, &ModelCheckConfig::default()).unwrap().0, expected_empty, "GNBA emptiness mismatch for {formula}");
+            assert_eq!(check_emptyness_generic(&nba, &ModelCheckConfig::default()).unwrap().0, expected_empty, "NBA emptiness mismatch for {formula}");
         }
     }
 }

@@ -122,110 +122,186 @@ impl NBA {
     }
 
     fn remove_dead_states(&mut self) {
-        if self.states.is_empty() {
-            self.transitions.clear();
-            return;
+        let mut reachable_from_initial = FxHashSet::default();
+        let mut worklist = VecDeque::new();
+
+        for &initial in &self.initial_states {
+            if reachable_from_initial.insert(initial) {
+                worklist.push_back(initial);
+            }
         }
 
-        let forward_reachable = self.compute_forward_reachable();
-        let backward_reachable = self.compute_backward_reachable();
-        let useful_states: FxHashSet<usize> = forward_reachable
-            .intersection(&backward_reachable)
+        while let Some(state_id) = worklist.pop_front() {
+            for &next in self.successors(state_id) {
+                if reachable_from_initial.insert(next) {
+                    worklist.push_back(next);
+                }
+            }
+        }
+
+        let sccs = Self::compute_sccs_nba(self);
+        let mut accepting_cycle_states = FxHashSet::default();
+
+        for scc in sccs {
+            let is_cyclic = if scc.len() > 1 {
+                true
+            } else {
+                let state_id = scc[0];
+                self.successors(state_id).contains(&state_id)
+            };
+
+            if is_cyclic && scc.iter().any(|state_id| self.is_accepting(*state_id)) {
+                accepting_cycle_states.extend(scc);
+            }
+        }
+
+        let mut can_reach_accepting = FxHashSet::default();
+        let mut reverse_edges: Vec<Vec<usize>> = vec![Vec::new(); self.states.len()];
+
+        for (from_id, trans_entry) in self.transitions.iter().enumerate() {
+            for &to_id in &trans_entry.transitions {
+                reverse_edges[to_id].push(from_id);
+            }
+        }
+
+        let mut worklist: VecDeque<usize> = accepting_cycle_states.iter().copied().collect();
+        while let Some(state_id) = worklist.pop_front() {
+            if !can_reach_accepting.insert(state_id) {
+                continue;
+            }
+
+            for &pred in &reverse_edges[state_id] {
+                if !can_reach_accepting.contains(&pred) {
+                    worklist.push_back(pred);
+                }
+            }
+        }
+
+        let useful_states: FxHashSet<usize> = reachable_from_initial
+            .intersection(&can_reach_accepting)
             .copied()
             .collect();
 
-        if useful_states.len() == self.states.len() {
-            return;
-        }
-
-        let mut id_map = FxHashMap::default();
-        let mut states = Vec::with_capacity(useful_states.len());
+        let old_transitions = self.transitions.clone();
+        let mut old_to_new = vec![None; self.states.len()];
+        let mut new_states = Vec::with_capacity(useful_states.len());
         let mut new_to_gnba = Vec::with_capacity(useful_states.len());
         let mut gnba_to_new = FxHashMap::default();
 
-        for (old_id, state) in self.states.iter().enumerate() {
-            if useful_states.contains(&old_id) {
-                let new_id = states.len();
-                id_map.insert(old_id, new_id);
-                states.push(State {
-                    id: new_id,
-                    formulas: state.formulas.clone(),
-                });
-
-                let (orig_state_id, acc_id, _) = self.new_to_gnba[old_id];
-                new_to_gnba.push((orig_state_id, acc_id, new_id));
-                gnba_to_new.insert((orig_state_id, acc_id), new_id);
+        for old_id in 0..self.states.len() {
+            if !useful_states.contains(&old_id) {
+                continue;
             }
+
+            let new_id = new_states.len();
+            old_to_new[old_id] = Some(new_id);
+            new_states.push(State {
+                id: new_id,
+                formulas: self.states[old_id].formulas.clone(),
+            });
+
+            let (orig_state_id, acc_id, _) = self.new_to_gnba[old_id];
+            new_to_gnba.push((orig_state_id, acc_id, new_id));
+            gnba_to_new.insert((orig_state_id, acc_id), new_id);
         }
 
         self.initial_states = self
             .initial_states
             .iter()
-            .filter_map(|state_id| id_map.get(state_id).copied())
+            .filter_map(|&old_id| old_to_new[old_id])
             .collect();
 
         self.acceptance_condition.states = self
             .acceptance_condition
             .states
             .iter()
-            .filter_map(|state_id| id_map.get(state_id).copied())
+            .filter_map(|&old_id| old_to_new[old_id])
             .collect();
 
-        self.states = states;
+        let mut new_transitions = vec![Transitions {
+            transitions: Vec::new(),
+            label: Vec::new(),
+        }; new_states.len()];
+
+        for old_from in 0..old_transitions.len() {
+            let Some(new_from) = old_to_new[old_from] else {
+                continue;
+            };
+
+            for (old_to, label) in old_transitions[old_from]
+                .transitions
+                .iter()
+                .copied()
+                .zip(old_transitions[old_from].label.iter())
+            {
+                if let Some(new_to) = old_to_new[old_to] {
+                    new_transitions[new_from].transitions.push(new_to);
+                    new_transitions[new_from].label.push(label.clone());
+                }
+            }
+        }
+
+        self.states = new_states;
+        self.transitions = new_transitions;
         self.new_to_gnba = new_to_gnba;
         self.gnba_to_new = gnba_to_new;
-        self.transitions = self.generate_transitions();
     }
 
-    fn compute_forward_reachable(&self) -> FxHashSet<usize> {
-        let mut reachable = FxHashSet::default();
-        let mut queue = VecDeque::new();
+    fn compute_sccs_nba(nba: &NBA) -> Vec<Vec<usize>> {
+        let n = nba.states.len();
+        let mut index = vec![None; n];
+        let mut lowlink = vec![0usize; n];
+        let mut stack: Vec<usize> = Vec::new();
+        let mut onstack = vec![false; n];
+        let mut current_index: usize = 0;
+        let mut sccs: Vec<Vec<usize>> = Vec::new();
 
-        for &initial_state in &self.initial_states {
-            if reachable.insert(initial_state) {
-                queue.push_back(initial_state);
-            }
-        }
+        fn strongconnect(
+            v: usize,
+            nba: &NBA,
+            index: &mut [Option<usize>],
+            lowlink: &mut [usize],
+            stack: &mut Vec<usize>,
+            onstack: &mut [bool],
+            current_index: &mut usize,
+            sccs: &mut Vec<Vec<usize>>,
+        ) {
+            index[v] = Some(*current_index);
+            lowlink[v] = *current_index;
+            *current_index += 1;
+            stack.push(v);
+            onstack[v] = true;
 
-        while let Some(state_id) = queue.pop_front() {
-            for &successor in self.successors(state_id) {
-                if reachable.insert(successor) {
-                    queue.push_back(successor);
+            for &w in nba.successors(v) {
+                if index[w].is_none() {
+                    strongconnect(w, nba, index, lowlink, stack, onstack, current_index, sccs);
+                    lowlink[v] = std::cmp::min(lowlink[v], lowlink[w]);
+                } else if onstack[w] {
+                    lowlink[v] = std::cmp::min(lowlink[v], index[w].unwrap());
                 }
             }
-        }
 
-        reachable
-    }
-
-    fn compute_backward_reachable(&self) -> FxHashSet<usize> {
-        let mut predecessors: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
-        for state in &self.states {
-            for &successor in self.successors(state.id) {
-                predecessors.entry(successor).or_default().push(state.id);
-            }
-        }
-
-        let mut reachable = FxHashSet::default();
-        let mut queue = VecDeque::new();
-
-        for &state_id in &self.acceptance_condition.states {
-            if reachable.insert(state_id) {
-                queue.push_back(state_id);
-            }
-        }
-
-        while let Some(state_id) = queue.pop_front() {
-            if let Some(prev_states) = predecessors.get(&state_id) {
-                for &prev_state in prev_states {
-                    if reachable.insert(prev_state) {
-                        queue.push_back(prev_state);
+            if index[v].unwrap() == lowlink[v] {
+                let mut scc = Vec::new();
+                loop {
+                    let w = stack.pop().unwrap();
+                    onstack[w] = false;
+                    scc.push(w);
+                    if w == v {
+                        break;
                     }
                 }
+                sccs.push(scc);
             }
         }
 
-        reachable
+        for v in 0..n {
+            if index[v].is_none() {
+                strongconnect(v, nba, &mut index, &mut lowlink, &mut stack, &mut onstack, &mut current_index, &mut sccs);
+            }
+        }
+
+        sccs
     }
 
     /// Generates transitions for the NBA based on the states and closure
@@ -435,6 +511,50 @@ impl NBA {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_nba_dead_state_removal_prunes_unreachable_and_non_accepting_states() {
+        let dummy_gnba = GNBA::new(&LTL::True);
+
+        let mut nba = NBA {
+            closure: vec![],
+            states: vec![
+                State { id: 0, formulas: vec![] },
+                State { id: 1, formulas: vec![] },
+                State { id: 2, formulas: vec![] },
+                State { id: 3, formulas: vec![] },
+                State { id: 4, formulas: vec![] },
+            ],
+            transitions: vec![
+                Transitions { transitions: vec![1, 3], label: vec![vec![], vec![]] },
+                Transitions { transitions: vec![2], label: vec![vec![]] },
+                Transitions { transitions: vec![], label: vec![] },
+                Transitions { transitions: vec![4], label: vec![vec![]] },
+                Transitions { transitions: vec![4], label: vec![vec![]] },
+            ],
+            initial_states: vec![0],
+            acceptance_condition: AcceptanceCondition { states: vec![2, 4] },
+            new_to_gnba: vec![(0, 0, 0), (1, 0, 1), (2, 0, 2), (3, 0, 3), (4, 0, 4)],
+            gnba_to_new: FxHashMap::from_iter([
+                ((0usize, 0usize), 0usize),
+                ((1usize, 0usize), 1usize),
+                ((2usize, 0usize), 2usize),
+                ((3usize, 0usize), 3usize),
+                ((4usize, 0usize), 4usize),
+            ]),
+            gnba: dummy_gnba,
+        };
+
+        nba.remove_dead_states();
+
+        assert_eq!(nba.states.len(), 3);
+        assert_eq!(nba.initial_states, vec![0]);
+        assert_eq!(nba.acceptance_condition.states, vec![2]);
+        assert_eq!(nba.transitions[0].transitions, vec![1]);
+        assert_eq!(nba.transitions[1].transitions, vec![2]);
+        assert_eq!(nba.transitions[2].transitions, vec![2]);
+        assert!(nba.states.iter().all(|state| state.id < nba.states.len()));
+    }
 
     #[test]
     fn test_nba_spot_equivalent() {

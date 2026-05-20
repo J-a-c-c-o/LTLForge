@@ -2,8 +2,6 @@ use crate::closure::compute_closure;
 use crate::consistency::is_consistent;
 use crate::ltl_parser::LTL;
 use crate::pnf::to_pnf;
-use std::collections::VecDeque;
-use rustc_hash::{FxHashMap, FxHashSet};
 
 pub struct GNBA {
     pub closure: Vec<LTL>,
@@ -48,7 +46,6 @@ impl GNBA {
             acceptance_conditions,
         };
         gnba.transitions = gnba.generate_transitions();
-        gnba.remove_dead_states();
         gnba
     }
 
@@ -66,109 +63,6 @@ impl GNBA {
 
     pub fn label(&self, state_id: usize) -> Vec<bool> {
         compute_label(&self.states[state_id], &self.closure)
-    }
-
-    fn remove_dead_states(&mut self) {
-        if self.states.is_empty() {
-            self.transitions.clear();
-            return;
-        }
-
-        let forward_reachable = self.compute_forward_reachable();
-        let backward_reachable = self.compute_backward_reachable();
-        let useful_states: FxHashSet<usize> = forward_reachable
-            .intersection(&backward_reachable)
-            .copied()
-            .collect();
-
-        if useful_states.len() == self.states.len() {
-            self.transitions = self.generate_transitions();
-            return;
-        }
-
-        let mut id_map = FxHashMap::default();
-        let mut states = Vec::with_capacity(useful_states.len());
-
-        for state in &self.states {
-            if useful_states.contains(&state.id) {
-                let new_id = states.len();
-                id_map.insert(state.id, new_id);
-                states.push(State {
-                    id: new_id,
-                    formulas: state.formulas.clone(),
-                });
-            }
-        }
-
-        self.initial_states = self
-            .initial_states
-            .iter()
-            .filter_map(|state_id| id_map.get(state_id).copied())
-            .collect();
-
-        for condition in &mut self.acceptance_conditions {
-            condition.states = condition
-                .states
-                .iter()
-                .filter_map(|state_id| id_map.get(state_id).copied())
-                .collect();
-        }
-
-        self.states = states;
-        self.transitions = self.generate_transitions();
-    }
-
-    fn compute_forward_reachable(&self) -> FxHashSet<usize> {
-        let mut reachable = FxHashSet::default();
-        let mut queue = VecDeque::new();
-
-        for &initial_state in &self.initial_states {
-            if reachable.insert(initial_state) {
-                queue.push_back(initial_state);
-            }
-        }
-
-        while let Some(state_id) = queue.pop_front() {
-            for &successor in self.successors(state_id) {
-                if reachable.insert(successor) {
-                    queue.push_back(successor);
-                }
-            }
-        }
-
-        reachable
-    }
-
-    fn compute_backward_reachable(&self) -> FxHashSet<usize> {
-        let mut predecessors: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
-        for state in &self.states {
-            for &successor in self.successors(state.id) {
-                predecessors.entry(successor).or_default().push(state.id);
-            }
-        }
-
-        let mut reachable = FxHashSet::default();
-        let mut queue = VecDeque::new();
-
-        for condition in &self.acceptance_conditions {
-            for &state_id in &condition.states {
-                if reachable.insert(state_id) {
-                    queue.push_back(state_id);
-                }
-            }
-        }
-
-        while let Some(state_id) = queue.pop_front() {
-            if let Some(prev_states) = predecessors.get(&state_id) {
-                for &prev_state in prev_states {
-                    if reachable.insert(prev_state) {
-                        queue.push_back(prev_state);
-                    }
-                }
-            }
-        }
-
-        reachable
     }
 
     fn generate_transitions(&self) -> Vec<Transitions> {
