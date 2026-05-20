@@ -5,6 +5,8 @@ use crate::petri_net::{PetriNet, PetriState};
 
 use rustc_hash::FxHashMap;
 use std::fs;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -146,38 +148,60 @@ impl<'a, P: NdfsEngine> NdfsContext<'a, P> {
 fn run_ndfs<P>(
     problem: &mut P,
     roots: Vec<P::State>,
+    stop: Option<&AtomicBool>,
 ) -> Result<(bool, Option<Vec<P::State>>, Option<Vec<P::State>>), P::Error>
 where
     P: NdfsEngine,
 {
     let mut ctx = NdfsContext::new(problem);
     for init in roots {
-        if dfs_blue(&mut ctx, init)? {
+        if should_stop(stop) {
+            break;
+        }
+
+        if dfs_blue_with_stop(&mut ctx, init, stop)? {
             return Ok((true, Some(ctx.stack.clone()), Some(ctx.stack2.clone())));
         }
     }
     Ok((false, None, None))
 }
 
-fn dfs_blue<P>(ctx: &mut NdfsContext<'_, P>, s: P::State) -> Result<bool, P::Error>
+fn should_stop(stop: Option<&AtomicBool>) -> bool {
+    stop.is_some_and(|flag| flag.load(Ordering::Relaxed))
+}
+
+fn dfs_blue_with_stop<P>(
+    ctx: &mut NdfsContext<'_, P>,
+    s: P::State,
+    stop: Option<&AtomicBool>,
+) -> Result<bool, P::Error>
 where
     P: NdfsEngine,
 {
+    if should_stop(stop) {
+        return Ok(false);
+    }
+
     ctx.problem.check_limits()?;
     ctx.set_color(s.clone(), StateColor::Cyan);
     ctx.stack.push(s.clone());
 
     let succs = ctx.problem.successors(&s)?;
     for t in succs {
+        if should_stop(stop) {
+            ctx.stack.pop();
+            return Ok(false);
+        }
+
         if ctx.get_color(&t) == StateColor::White {
-            if dfs_blue(ctx, t)? {
+            if dfs_blue_with_stop(ctx, t, stop)? {
                 return Ok(true);
             }
         }
     }
 
     if ctx.problem.is_accepting(&s) {
-        if dfs_red(ctx, s.clone())? {
+        if dfs_red_with_stop(ctx, s.clone(), stop)? {
             return Ok(true);
         }
         ctx.set_color(s, StateColor::Red);
@@ -189,20 +213,33 @@ where
     Ok(false)
 }
 
-fn dfs_red<P>(ctx: &mut NdfsContext<'_, P>, s: P::State) -> Result<bool, P::Error>
+fn dfs_red_with_stop<P>(
+    ctx: &mut NdfsContext<'_, P>,
+    s: P::State,
+    stop: Option<&AtomicBool>,
+) -> Result<bool, P::Error>
 where
     P: NdfsEngine,
 {
+    if should_stop(stop) {
+        return Ok(false);
+    }
+
     ctx.problem.check_limits()?;
     ctx.stack2.push(s.clone());
 
     let succs = ctx.problem.successors(&s)?;
     for t in succs {
+        if should_stop(stop) {
+            ctx.stack2.pop();
+            return Ok(false);
+        }
+
         match ctx.get_color(&t) {
             StateColor::Cyan => return Ok(true),
             StateColor::Blue => {
                 ctx.set_color(t.clone(), StateColor::Red);
-                if dfs_red(ctx, t)? {
+                if dfs_red_with_stop(ctx, t, stop)? {
                     return Ok(true);
                 }
             }
@@ -300,13 +337,12 @@ impl<'a, A: Automaton> NdfsEngine for AutomatonNdfs<'a, A> {
     }
 }
 
-fn check_emptyness_generic<A: Automaton>(
+fn check_emptyness_generic<A: Automaton + Sync>(
     automaton: &A,
     config: &ModelCheckConfig,
 ) -> Result<(bool, Option<Vec<usize>>, Option<Vec<usize>>), ModelCheckError> {
     let roots = automaton.initial_states();
-    let mut problem = AutomatonNdfs::new(automaton, config);
-    let (found, stack, stack2) = run_ndfs(&mut problem, roots)?;
+    let (found, stack, stack2) = run_ndfs_parallel(roots, || AutomatonNdfs::new(automaton, config))?;
 
     if found {
         Ok((false, stack, stack2))
@@ -437,15 +473,97 @@ fn ndfs_model_check(
     nba: &NBA,
     config: &ModelCheckConfig,
 ) -> Result<(bool, Option<Vec<CombinedState>>, Option<Vec<CombinedState>>), ModelCheckError> {
-    let mut automaton = ProductNdfs::new(petri, nba, config);
     let roots = model_check_initial_roots(petri, nba);
-    let (found, stack, stack2) = run_ndfs(&mut automaton, roots)?;
+    let (found, stack, stack2) = run_ndfs_parallel(roots, || ProductNdfs::new(petri, nba, config))?;
 
     if found {
         Ok((true, stack, stack2))
     } else {
         Ok((false, None, None))
     }
+}
+
+fn run_ndfs_parallel<P, F>(
+    roots: Vec<P::State>,
+    make_problem: F,
+) -> Result<(bool, Option<Vec<P::State>>, Option<Vec<P::State>>), P::Error>
+where
+    P: NdfsEngine + Send,
+    P::State: Send,
+    P::Error: Send,
+    F: Fn() -> P + Sync,
+{
+    if roots.len() <= 1 {
+        let mut problem = make_problem();
+        return run_ndfs(&mut problem, roots, None);
+    }
+
+    let worker_count = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1)
+        .min(roots.len())
+        .max(1);
+    let chunk_size = (roots.len() + worker_count - 1) / worker_count;
+    const WORKER_STACK_SIZE: usize = 1024 * 1024 * 1024;
+    let stop = AtomicBool::new(false);
+    let (tx, rx) = mpsc::channel();
+
+    std::thread::scope(|scope| -> Result<_, P::Error> {
+        for chunk in roots.chunks(chunk_size) {
+            let chunk = chunk.to_vec();
+            let tx = tx.clone();
+            let make_problem = &make_problem;
+            let stop = &stop;
+
+            std::thread::Builder::new()
+                .stack_size(WORKER_STACK_SIZE)
+                .spawn_scoped(scope, move || {
+                if should_stop(Some(stop)) {
+                    return;
+                }
+
+                let mut problem = make_problem();
+                match run_ndfs(&mut problem, chunk, Some(stop)) {
+                    Ok(result @ (true, _, _)) => {
+                        stop.store(true, Ordering::Relaxed);
+                        let _ = tx.send(Ok(result));
+                    }
+                    Ok(result) => {
+                        let _ = tx.send(Ok(result));
+                    }
+                    Err(err) => {
+                        stop.store(true, Ordering::Relaxed);
+                        let _ = tx.send(Err(err));
+                    }
+                }
+                })
+                .expect("failed to spawn model-checking worker thread");
+        }
+
+        drop(tx);
+
+        let mut maybe_error = None;
+        for outcome in rx {
+            match outcome {
+                Ok((true, stack, stack2)) => {
+                    stop.store(true, Ordering::Relaxed);
+                    return Ok((true, stack, stack2));
+                }
+                Ok((false, _, _)) => {}
+                Err(err) => {
+                    stop.store(true, Ordering::Relaxed);
+                    maybe_error = Some(err);
+                    break;
+                }
+            }
+        }
+
+        if let Some(err) = maybe_error {
+            return Err(err);
+        }
+
+        Ok((false, None, None))
+    })
 }
 
 

@@ -115,15 +115,6 @@ enum Commands {
 }
 
 fn main() {
-    std::thread::Builder::new()
-        .stack_size(1024 * 1024 * 1024)
-        .spawn(run)
-        .unwrap()
-        .join()
-        .unwrap();
-}
-
-fn run() {
     let cli = Cli::parse();
 
     match cli.command {
