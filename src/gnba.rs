@@ -95,7 +95,7 @@ impl GNBA {
             "Acceptance Conditions: {}",
             self.acceptance_conditions.len()
         );
-        println!("Transitions: {}", self.transitions.len());
+        println!("Transitions: {}", self.transitions.iter().map(|t| t.transitions.len()).sum::<usize>());
     }
 
     pub fn to_dot(&self) -> String {

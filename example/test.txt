@@ -1,5 +1,5 @@
 Property Philosophers-PT-000020-LTLCardinality-02
   "Automatically generated"
   is:
-    A G !(X (a) U X F G (b))
+    (a U b) | (c U d)
   end.
