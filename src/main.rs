@@ -272,7 +272,7 @@ fn main() {
                             }
                             Err(emptyness::ModelCheckError::Timeout) => {
                                 if simple {
-                                    simple_output.push('?');
+                                    simple_output.push('T');
                                 } else {
                                     eprintln!(
                                         "{}",
@@ -288,7 +288,7 @@ fn main() {
                             }
                             Err(emptyness::ModelCheckError::MemoryLimitExceeded) => {
                                 if simple {
-                                    simple_output.push('?');
+                                    simple_output.push('M');
                                 } else {
                                     eprintln!(
                                         "{}",

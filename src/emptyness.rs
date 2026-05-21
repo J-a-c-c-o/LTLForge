@@ -160,7 +160,7 @@ where
             break;
         }
 
-        if dfs_blue_with_stop(&mut ctx, init, stop)? {
+        if dfs_blue(&mut ctx, init, stop)? {
             return Ok((true, Some(ctx.stack.clone()), Some(ctx.stack2.clone())));
         }
     }
@@ -171,7 +171,7 @@ fn should_stop(stop: Option<&AtomicBool>) -> bool {
     stop.is_some_and(|flag| flag.load(Ordering::Relaxed))
 }
 
-fn dfs_blue_with_stop<P>(
+fn dfs_blue<P>(
     ctx: &mut NdfsContext<'_, P>,
     s: P::State,
     stop: Option<&AtomicBool>,
@@ -194,13 +194,13 @@ where
             return Ok(false);
         }
 
-        if ctx.get_color(&t) == StateColor::White && dfs_blue_with_stop(ctx, t, stop)? {
+        if ctx.get_color(&t) == StateColor::White && dfs_blue(ctx, t, stop)? {
             return Ok(true);
         }
     }
 
     if ctx.problem.is_accepting(&s) {
-        if dfs_red_with_stop(ctx, s.clone(), stop)? {
+        if dfs_red(ctx, s.clone(), stop)? {
             return Ok(true);
         }
         ctx.set_color(s, StateColor::Red);
@@ -212,7 +212,7 @@ where
     Ok(false)
 }
 
-fn dfs_red_with_stop<P>(
+fn dfs_red<P>(
     ctx: &mut NdfsContext<'_, P>,
     s: P::State,
     stop: Option<&AtomicBool>,
@@ -238,7 +238,7 @@ where
             StateColor::Cyan => return Ok(true),
             StateColor::Blue => {
                 ctx.set_color(t.clone(), StateColor::Red);
-                if dfs_red_with_stop(ctx, t, stop)? {
+                if dfs_red(ctx, t, stop)? {
                     return Ok(true);
                 }
             }
@@ -385,14 +385,20 @@ impl<'a> ProductNdfs<'a> {
         successors
     }
 
-    fn compute_label_cached(&mut self, marking: &PetriState) -> Vec<bool> {
+    fn compute_label_cached(&mut self, marking: &PetriState) -> Result<Vec<bool>, ModelCheckError> {
         if let Some(label) = self.label_cache.get(marking) {
-            return label.clone();
+            return Ok(label.clone());
         }
 
-        let label = compute_label(marking, self.petri, self.nba);
+        let label = compute_label(
+            marking,
+            self.petri,
+            self.nba,
+            Some(self.start_time),
+            self.config.timeout_secs,
+        )?;
         self.label_cache.insert(marking.clone(), label.clone());
-        label
+        Ok(label)
     }
 }
 
@@ -432,7 +438,7 @@ impl<'a> NdfsEngine for ProductNdfs<'a> {
         };
 
         for next_marking in next_markings {
-            let label = self.compute_label_cached(&next_marking);
+            let label = self.compute_label_cached(&next_marking)?;
             let next_nba_states = self.nba.next(state.nba_state, &label);
 
             for q_next in next_nba_states {
@@ -451,9 +457,14 @@ impl<'a> NdfsEngine for ProductNdfs<'a> {
     }
 }
 
-fn model_check_initial_roots(petri: &PetriNet, nba: &NBA) -> Vec<CombinedState> {
+fn model_check_initial_roots(
+    petri: &PetriNet,
+    nba: &NBA,
+    config: &ModelCheckConfig,
+) -> Result<Vec<CombinedState>, ModelCheckError> {
     let initial_marking = petri.initial_state();
-    let initial_label = compute_label(&initial_marking, petri, nba);
+    let start = Instant::now();
+    let initial_label = compute_label(&initial_marking, petri, nba, Some(start), config.timeout_secs)?;
     let mut roots = Vec::new();
 
     for q0 in nba.initial_states() {
@@ -465,7 +476,7 @@ fn model_check_initial_roots(petri: &PetriNet, nba: &NBA) -> Vec<CombinedState> 
         }
     }
 
-    roots
+    Ok(roots)
 }
 
 fn ndfs_model_check(
@@ -473,7 +484,7 @@ fn ndfs_model_check(
     nba: &NBA,
     config: &ModelCheckConfig,
 ) -> Result<(bool, Option<Vec<CombinedState>>, Option<Vec<CombinedState>>), ModelCheckError> {
-    let roots = model_check_initial_roots(petri, nba);
+    let roots = model_check_initial_roots(petri, nba, config)?;
     let (found, stack, stack2) = run_ndfs_parallel(roots, || ProductNdfs::new(petri, nba, config))?;
 
     if found {
@@ -566,7 +577,14 @@ where
     })
 }
 
-fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool> {
+fn compute_label(
+    marking: &PetriState,
+    petri: &PetriNet,
+    nba: &NBA,
+    start_time: Option<Instant>,
+    timeout_secs: Option<u64>,
+) -> Result<Vec<bool>, ModelCheckError> {
+
     fn eval_num(expr: &LTL, petri: &PetriNet, marking: &PetriState) -> Option<i64> {
         match expr {
             LTL::Number(n) => Some(*n as i64),
@@ -645,18 +663,34 @@ fn compute_label(marking: &PetriState, petri: &PetriNet, nba: &NBA) -> Vec<bool>
         }
     }
 
-    nba.closure
-        .iter()
-        .filter_map(|formula| match formula {
+    let mut result = Vec::new();
+    for formula in &nba.closure {
+        if let (Some(start), Some(timeout)) = (start_time, timeout_secs) {
+            if start.elapsed() > Duration::from_secs(timeout) {
+                return Err(ModelCheckError::Timeout);
+            }
+        }
+
+        match formula {
             LTL::Var(_)
             | LTL::LessEqual(_, _)
             | LTL::GreaterEqual(_, _)
             | LTL::Greater(_, _)
-            | LTL::Less(_, _) => eval_bool(formula, petri, marking),
-            LTL::Fireable(_) => eval_bool(formula, petri, marking),
-            _ => None,
-        })
-        .collect()
+            | LTL::Less(_, _) => {
+                if let Some(b) = eval_bool(formula, petri, marking) {
+                    result.push(b);
+                }
+            }
+            LTL::Fireable(_) => {
+                if let Some(b) = eval_bool(formula, petri, marking) {
+                    result.push(b);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(result)
 }
 
 fn current_process_rss_bytes() -> Option<u64> {
