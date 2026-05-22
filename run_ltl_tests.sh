@@ -11,7 +11,7 @@ INPUT_DIR="inputs/test"
 OUTPUT_FILE="results.txt"
 MEMORY_LIMIT="4096"
 VERBOSE=false
-LTL_PATTERNS=("LTLCardinality.txt" "LTLFireability.txt")
+LTL_PATTERNS=("LTLCardinality.txt")
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do

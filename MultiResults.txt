@@ -1,0 +1,326 @@
+LTL Model Checking Results
+==========================
+Generated: Fri May 22 12:10:32 PM CEST 2026
+Memory Limit: 25000 MB
+Timeout: 60s
+Input Directory: inputs/test
+
+PaceMaker-PT-none-LTLCardinality
+  Raw Output: pfpTfTfpTMpfpfpp
+  Pass: 7, Fail: 5, Memory Error: 1, Timeout: 3
+
+PaceMaker-PT-none-LTLFireability
+  Raw Output: fffpfpfpfffpffff
+  Pass: 4, Fail: 12, Memory Error: 0, Timeout: 0
+
+Parking-PT-104-LTLCardinality
+  Raw Output: pffffpffppffpfff
+  Pass: 5, Fail: 11, Memory Error: 0, Timeout: 0
+
+Parking-PT-104-LTLFireability
+  Raw Output: fpfffffpffffffff
+  Pass: 2, Fail: 14, Memory Error: 0, Timeout: 0
+
+Parking-PT-208-LTLCardinality
+  Raw Output: TfTfppffpffffTff
+  Pass: 3, Fail: 10, Memory Error: 0, Timeout: 3
+
+Parking-PT-208-LTLFireability
+  Raw Output: ffpTfffffTfTfpfp
+  Pass: 3, Fail: 10, Memory Error: 0, Timeout: 3
+
+Parking-PT-416-LTLCardinality
+  Raw Output: fTfTfffMTppfMfTf
+  Pass: 2, Fail: 8, Memory Error: 2, Timeout: 4
+
+Parking-PT-416-LTLFireability
+  Raw Output: fpfffTfffTffffMf
+  Pass: 1, Fail: 12, Memory Error: 1, Timeout: 2
+
+Parking-PT-432-LTLCardinality
+  Raw Output: TfMfffpfMfpfffff
+  Pass: 2, Fail: 11, Memory Error: 2, Timeout: 1
+
+Parking-PT-432-LTLFireability
+  Raw Output: MfffMTTffffTffMf
+  Pass: 0, Fail: 10, Memory Error: 3, Timeout: 3
+
+Parking-PT-832-LTLCardinality
+  Raw Output: pTTfffTMffffTffT
+  Pass: 1, Fail: 9, Memory Error: 1, Timeout: 5
+
+Parking-PT-832-LTLFireability
+  Raw Output: TfffppfMfTfTffMf
+  Pass: 2, Fail: 9, Memory Error: 2, Timeout: 3
+
+Parking-PT-864-LTLCardinality
+  Raw Output: MMpMfMpfffTMfMTp
+  Pass: 3, Fail: 5, Memory Error: 6, Timeout: 2
+
+Parking-PT-864-LTLFireability
+  Raw Output: ffpTffpMMTMMffMT
+  Pass: 2, Fail: 6, Memory Error: 5, Timeout: 3
+
+Peterson-PT-2-LTLCardinality
+  Raw Output: pffpfffffppffppp
+  Pass: 7, Fail: 9, Memory Error: 0, Timeout: 0
+
+Peterson-PT-2-LTLFireability
+  Raw Output: fffffpfffffffppf
+  Pass: 3, Fail: 13, Memory Error: 0, Timeout: 0
+
+Peterson-PT-3-LTLCardinality
+  Raw Output: TfffppfTffpfffff
+  Pass: 3, Fail: 11, Memory Error: 0, Timeout: 2
+
+Peterson-PT-3-LTLFireability
+  Raw Output: fffpfffffffffffp
+  Pass: 2, Fail: 14, Memory Error: 0, Timeout: 0
+
+Peterson-PT-4-LTLCardinality
+  Raw Output: fpfppffpTfpffffp
+  Pass: 6, Fail: 9, Memory Error: 0, Timeout: 1
+
+Peterson-PT-4-LTLFireability
+  Raw Output: ffffffffffTfTfff
+  Pass: 0, Fail: 14, Memory Error: 0, Timeout: 2
+
+Peterson-PT-5-LTLCardinality
+  Raw Output: TffTpfffpffTfpfT
+  Pass: 3, Fail: 9, Memory Error: 0, Timeout: 4
+
+Peterson-PT-5-LTLFireability
+  Raw Output: fffpffffffffffpM
+  Pass: 2, Fail: 13, Memory Error: 1, Timeout: 0
+
+Peterson-PT-6-LTLCardinality
+  Raw Output: fffpfMfffTfffMpf
+  Pass: 2, Fail: 11, Memory Error: 2, Timeout: 1
+
+Peterson-PT-6-LTLFireability
+  Raw Output: TfffffffffffpTpT
+  Pass: 2, Fail: 11, Memory Error: 0, Timeout: 3
+
+Peterson-PT-7-LTLCardinality
+  Raw Output: fffTfffppMfMMffM
+  Pass: 2, Fail: 9, Memory Error: 4, Timeout: 1
+
+Peterson-PT-7-LTLFireability
+  Raw Output: ffpTfTpfffMfffMp
+  Pass: 3, Fail: 9, Memory Error: 2, Timeout: 2
+
+PhaseVariation-PT-D02CS010-LTLCardinality
+  Raw Output: pfffffppfTfffppp
+  Pass: 6, Fail: 9, Memory Error: 0, Timeout: 1
+
+PhaseVariation-PT-D02CS010-LTLFireability
+  Raw Output: fppfffffffffpffp
+  Pass: 4, Fail: 12, Memory Error: 0, Timeout: 0
+
+PhaseVariation-PT-D02CS100-LTLCardinality
+  Raw Output: fpfffffppfffpfpp
+  Pass: 6, Fail: 10, Memory Error: 0, Timeout: 0
+
+PhaseVariation-PT-D02CS100-LTLFireability
+  Raw Output: fTfTTffpffffffff
+  Pass: 1, Fail: 12, Memory Error: 0, Timeout: 3
+
+PhaseVariation-PT-D05CS010-LTLCardinality
+  Raw Output: ffffpfffTTffffff
+  Pass: 1, Fail: 13, Memory Error: 0, Timeout: 2
+
+PhaseVariation-PT-D05CS010-LTLFireability
+  Raw Output: fTfTffffffffffff
+  Pass: 0, Fail: 14, Memory Error: 0, Timeout: 2
+
+PhaseVariation-PT-D05CS100-LTLCardinality
+  Raw Output: ffffTffffTTpffff
+  Pass: 1, Fail: 12, Memory Error: 0, Timeout: 3
+
+PhaseVariation-PT-D05CS100-LTLFireability
+  Raw Output: fffffpfTfMfTfTfM
+  Pass: 1, Fail: 10, Memory Error: 2, Timeout: 3
+
+PhaseVariation-PT-D10CS010-LTLCardinality
+  Raw Output: fTpffTffffTTffTf
+  Pass: 1, Fail: 10, Memory Error: 0, Timeout: 5
+
+PhaseVariation-PT-D10CS010-LTLFireability
+  Raw Output: fffTffTfppTMffTp
+  Pass: 3, Fail: 8, Memory Error: 1, Timeout: 4
+
+PhaseVariation-PT-D10CS100-LTLCardinality
+  Raw Output: fffffffMffpfpfff
+  Pass: 2, Fail: 13, Memory Error: 1, Timeout: 0
+
+PhaseVariation-PT-D10CS100-LTLFireability
+  Raw Output: fTfppffffffpMfTf
+  Pass: 3, Fail: 10, Memory Error: 1, Timeout: 2
+
+PhaseVariation-PT-D20CS010-LTLCardinality
+  Raw Output: pppfpppMpfffMppp
+  Pass: 10, Fail: 4, Memory Error: 2, Timeout: 0
+
+PhaseVariation-PT-D20CS010-LTLFireability
+  Raw Output: fffTfpTffpTMfTTf
+  Pass: 2, Fail: 8, Memory Error: 1, Timeout: 5
+
+PhaseVariation-PT-D20CS100-LTLCardinality
+  Raw Output: fTfMpMpfffpffMTp
+  Pass: 4, Fail: 7, Memory Error: 3, Timeout: 2
+
+PhaseVariation-PT-D20CS100-LTLFireability
+  Raw Output: fTffTfTfMTTfMfMT
+  Pass: 0, Fail: 7, Memory Error: 3, Timeout: 6
+
+PhaseVariation-PT-D30CS010-LTLCardinality
+  Raw Output: fpffffTMfMMfpTpf
+  Pass: 3, Fail: 8, Memory Error: 3, Timeout: 2
+
+PhaseVariation-PT-D30CS010-LTLFireability
+  Raw Output: fMTTMMfTMpfffMMT
+  Pass: 1, Fail: 5, Memory Error: 6, Timeout: 4
+
+PhaseVariation-PT-D30CS100-LTLCardinality
+  Raw Output: fMfMfpMffMpfffff
+  Pass: 2, Fail: 10, Memory Error: 4, Timeout: 0
+
+PhaseVariation-PT-D30CS100-LTLFireability
+  Raw Output: TfTMfTfTMTfffTff
+  Pass: 0, Fail: 8, Memory Error: 2, Timeout: 6
+
+SafeBus-PT-03-LTLCardinality
+  Raw Output: pffffffppffpffff
+  Pass: 4, Fail: 12, Memory Error: 0, Timeout: 0
+
+SafeBus-PT-03-LTLFireability
+  Raw Output: ffpfffpffffpffff
+  Pass: 3, Fail: 13, Memory Error: 0, Timeout: 0
+
+SafeBus-PT-06-LTLCardinality
+  Raw Output: fffpTfpfpffffpfp
+  Pass: 5, Fail: 10, Memory Error: 0, Timeout: 1
+
+SafeBus-PT-06-LTLFireability
+  Raw Output: ffffffTffpTffffT
+  Pass: 1, Fail: 12, Memory Error: 0, Timeout: 3
+
+SafeBus-PT-10-LTLCardinality
+  Raw Output: fpfpTfffTMpffffp
+  Pass: 4, Fail: 9, Memory Error: 1, Timeout: 2
+
+SafeBus-PT-10-LTLFireability
+  Raw Output: TffffTfTpffffMTf
+  Pass: 1, Fail: 10, Memory Error: 1, Timeout: 4
+
+SafeBus-PT-15-LTLCardinality
+  Raw Output: ffpTfffffppfTMpf
+  Pass: 4, Fail: 9, Memory Error: 1, Timeout: 2
+
+SafeBus-PT-15-LTLFireability
+  Raw Output: TTpTTTfTffpffffp
+  Pass: 3, Fail: 7, Memory Error: 0, Timeout: 6
+
+SafeBus-PT-20-LTLCardinality
+  Raw Output: TpTfTfTfpTpMffpf
+  Pass: 4, Fail: 6, Memory Error: 1, Timeout: 5
+
+SafeBus-PT-20-LTLFireability
+  Raw Output: TTfffTTTfMfppMff
+  Pass: 2, Fail: 7, Memory Error: 2, Timeout: 5
+
+Philosophers-PT-000005-LTLCardinality
+  Raw Output: fpfpfffffffffffp
+  Pass: 3, Fail: 13, Memory Error: 0, Timeout: 0
+
+Philosophers-PT-000005-LTLFireability
+  Raw Output: ffpffffpfpffffff
+  Pass: 3, Fail: 13, Memory Error: 0, Timeout: 0
+
+Philosophers-PT-000010-LTLCardinality
+  Raw Output: fffffpfpfpfffpff
+  Pass: 4, Fail: 12, Memory Error: 0, Timeout: 0
+
+Philosophers-PT-000010-LTLFireability
+  Raw Output: fppffffpffffffff
+  Pass: 3, Fail: 13, Memory Error: 0, Timeout: 0
+
+Philosophers-PT-000020-LTLCardinality
+  Raw Output: fpfpfffffpfpfffp
+  Pass: 5, Fail: 11, Memory Error: 0, Timeout: 0
+
+Philosophers-PT-000020-LTLFireability
+  Raw Output: Mfffffffffffffff
+  Pass: 0, Fail: 15, Memory Error: 1, Timeout: 0
+
+Philosophers-PT-000050-LTLCardinality
+  Raw Output: fTffpTMpTfMMfMff
+  Pass: 2, Fail: 7, Memory Error: 4, Timeout: 3
+
+Philosophers-PT-000050-LTLFireability
+  Raw Output: ffMpMMMfffffffpf
+  Pass: 2, Fail: 10, Memory Error: 4, Timeout: 0
+
+Philosophers-PT-000100-LTLCardinality
+  Raw Output: fffffpfpffffTfff
+  Pass: 2, Fail: 13, Memory Error: 0, Timeout: 1
+
+Philosophers-PT-000100-LTLFireability
+  Raw Output: fMffffpTffffffff
+  Pass: 1, Fail: 13, Memory Error: 1, Timeout: 1
+
+Philosophers-PT-000200-LTLCardinality
+  Raw Output: fTffffffpfffffff
+  Pass: 1, Fail: 14, Memory Error: 0, Timeout: 1
+
+Philosophers-PT-000200-LTLFireability
+  Raw Output: fpfffpffpffpffff
+  Pass: 4, Fail: 12, Memory Error: 0, Timeout: 0
+
+Philosophers-PT-000500-LTLCardinality
+  Raw Output: TTTTTTfTpfpfMfff
+  Pass: 2, Fail: 6, Memory Error: 1, Timeout: 7
+
+Philosophers-PT-000500-LTLFireability
+  Raw Output: fMTTppfpfMMMfMfM
+  Pass: 3, Fail: 5, Memory Error: 6, Timeout: 2
+
+Philosophers-PT-001000-LTLCardinality
+  Raw Output: TTTTTTTTMMMMMMMM
+  Pass: 0, Fail: 0, Memory Error: 8, Timeout: 8
+
+Philosophers-PT-001000-LTLFireability
+  Raw Output: TTMTTTTpMpMMMMpM
+  Pass: 3, Fail: 0, Memory Error: 7, Timeout: 6
+
+Philosophers-PT-002000-LTLCardinality
+  Raw Output: TTTTpTTTMMMMpMMM
+  Pass: 2, Fail: 0, Memory Error: 7, Timeout: 7
+
+Philosophers-PT-002000-LTLFireability
+  Raw Output: TpMTpTTMMMMMMMpM
+  Pass: 3, Fail: 0, Memory Error: 9, Timeout: 4
+
+Philosophers-PT-005000-LTLCardinality
+  Raw Output: TpTTTTpTMMMMMMMM
+  Pass: 2, Fail: 0, Memory Error: 8, Timeout: 6
+
+Philosophers-PT-005000-LTLFireability
+  Raw Output: TTTTpTTTMMMMMMMM
+  Pass: 1, Fail: 0, Memory Error: 8, Timeout: 7
+
+Philosophers-PT-010000-LTLCardinality
+  Raw Output: TTTTTpTTMMMMMMpM
+  Pass: 2, Fail: 0, Memory Error: 7, Timeout: 7  
+
+Philosophers-PT-010000-LTLFireability
+  Raw Output: TpTTTTMTMMMpMMMM
+  Pass: 2, Fail: 0, Memory Error: 8, Timeout: 6
+
+==========================
+Summary:
+Total test files processed: 78
+Total properties evaluated:
+  Passed: 204
+  Failed: 693
+  Error/Timeout: 351

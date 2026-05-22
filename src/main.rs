@@ -115,6 +115,15 @@ enum Commands {
 }
 
 fn main() {
+    const MAIN_STACK_SIZE: usize = 1024 * 1024 * 1024;
+    let builder = std::thread::Builder::new().stack_size(MAIN_STACK_SIZE);
+    builder.spawn(run)
+        .expect("Failed to spawn main thread with increased stack size")
+        .join()
+        .expect("Main thread panicked");
+}
+
+fn run() {
     let cli = Cli::parse();
 
     match cli.command {
