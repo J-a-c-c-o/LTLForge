@@ -1,10 +1,12 @@
+use rustc_hash::FxHashMap;
+
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct PetriNet {
     pub id: String,
     pub name: String,
     pub places: Vec<Place>,
     pub transitions: Vec<Transition>,
-    pub initial_tokens: Vec<u8>,
+    pub initial_tokens: Vec<u32>,
 }
 
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -21,7 +23,7 @@ pub struct Transition {
 
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct PetriState {
-    pub tokens: Vec<u8>,
+    pub tokens: Vec<u32>,
 }
 
 impl PetriNet {
@@ -129,10 +131,19 @@ impl Transition {
         self.is_fireable_tokens(&state.tokens)
     }
 
-    pub fn is_fireable_tokens(&self, tokens: &[u8]) -> bool {
-        self.incoming
-            .iter()
-            .all(|incoming_index| tokens.get(*incoming_index as usize).copied().unwrap_or(0) > 0)
+    pub fn is_fireable_tokens(&self, tokens: &[u32]) -> bool {
+        let mut required_tokens: FxHashMap<u32, u32> = FxHashMap::default();
+        for &incoming_index in &self.incoming {
+            *required_tokens.entry(incoming_index).or_insert(0) += 1;
+        }
+
+        required_tokens.into_iter().all(|(incoming_index, required_count)| {
+            tokens
+                .get(incoming_index as usize)
+                .copied()
+                .unwrap_or(0)
+                >= required_count
+        })
     }
 }
 
