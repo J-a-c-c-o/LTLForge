@@ -20,7 +20,7 @@ use crate::philosophers::PhilosopherConfiguration;
 
 /// LTL Model Checking Toolbox
 #[derive(Parser)]
-#[command(name = "ltltools")]
+#[command(name = "LTLForge")]
 #[command(about = "A toolbox for LTL model checking on Petri nets", long_about = None)]
 struct Cli {
     #[command(subcommand)]
