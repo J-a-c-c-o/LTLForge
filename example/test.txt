@@ -1,5 +1,0 @@
-Property Philosophers-PT-000020-LTLCardinality-02
-  "Automatically generated"
-  is:
-    (a U b) | (c U d)
-  end.

@@ -51,7 +51,7 @@ if [ ! -d "$INPUT_DIR" ]; then
 fi
 
 # Build the project if not already built
-if [ ! -f "target/release/ltltools" ]; then
+if [ ! -f "target/release/ltlforge" ]; then
     echo "Building project..."
     cargo build --release
 fi

@@ -1,0 +1,13 @@
+[package]
+name = "ltl_forge"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.6.1", features = ["derive"] }
+colored = "3.1.1"
+nom = "8.0.0"
+open = "5.3.4"
+rand = "0.10.1"
+roxmltree = "0.21.1"
+rustc-hash = "2.1.2"
