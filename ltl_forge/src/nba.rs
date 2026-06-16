@@ -361,7 +361,13 @@ impl NBA {
             "Accepting States: {}",
             self.acceptance_condition.states.len()
         );
-        println!("Transitions: {}", self.transitions.iter().map(|t| t.transitions.len()).sum::<usize>());
+        println!(
+            "Transitions: {}",
+            self.transitions
+                .iter()
+                .map(|t| t.transitions.len())
+                .sum::<usize>()
+        );
     }
 
     pub fn to_dot(&self) -> String {

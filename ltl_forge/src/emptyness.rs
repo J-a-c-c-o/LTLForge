@@ -464,7 +464,13 @@ fn model_check_initial_roots(
 ) -> Result<Vec<CombinedState>, ModelCheckError> {
     let initial_marking = petri.initial_state();
     let start = Instant::now();
-    let initial_label = compute_label(&initial_marking, petri, nba, Some(start), config.timeout_secs)?;
+    let initial_label = compute_label(
+        &initial_marking,
+        petri,
+        nba,
+        Some(start),
+        config.timeout_secs,
+    )?;
     let mut roots = Vec::new();
 
     for q0 in nba.initial_states() {
@@ -584,7 +590,6 @@ fn compute_label(
     start_time: Option<Instant>,
     timeout_secs: Option<u64>,
 ) -> Result<Vec<bool>, ModelCheckError> {
-
     fn eval_num(expr: &LTL, petri: &PetriNet, marking: &PetriState) -> Option<i64> {
         match expr {
             LTL::Number(n) => Some(*n as i64),

@@ -137,13 +137,11 @@ impl Transition {
             *required_tokens.entry(incoming_index).or_insert(0) += 1;
         }
 
-        required_tokens.into_iter().all(|(incoming_index, required_count)| {
-            tokens
-                .get(incoming_index as usize)
-                .copied()
-                .unwrap_or(0)
-                >= required_count
-        })
+        required_tokens
+            .into_iter()
+            .all(|(incoming_index, required_count)| {
+                tokens.get(incoming_index as usize).copied().unwrap_or(0) >= required_count
+            })
     }
 }
 

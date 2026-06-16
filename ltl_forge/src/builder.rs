@@ -232,12 +232,12 @@ fn parse_arc(arc_node: roxmltree::Node) -> PetriNetArcBuilder {
 
 #[cfg(test)]
 mod tests {
-        use super::*;
-        use crate::petri_net::PetriState;
+    use super::*;
+    use crate::petri_net::PetriState;
 
-        #[test]
-        fn test_build_from_xml_preserves_large_markings_and_arc_weights() {
-                let xml = r#"
+    #[test]
+    fn test_build_from_xml_preserves_large_markings_and_arc_weights() {
+        let xml = r#"
                         <pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
                             <net id="weighted" type="http://www.pnml.org/version-2009/grammar/ptnet">
                                 <page id="page0">
@@ -256,22 +256,22 @@ mod tests {
                         </pnml>
                 "#;
 
-                let nets = PetriNetBuilder::build_from_xml(xml);
-                assert_eq!(nets.len(), 1);
+        let nets = PetriNetBuilder::build_from_xml(xml);
+        assert_eq!(nets.len(), 1);
 
-                let net = &nets[0];
-                assert_eq!(net.initial_tokens, vec![300]);
-                assert_eq!(net.transitions[0].incoming, vec![0, 0]);
-                assert_eq!(net.transitions[0].outgoing, vec![0, 0]);
+        let net = &nets[0];
+        assert_eq!(net.initial_tokens, vec![300]);
+        assert_eq!(net.transitions[0].incoming, vec![0, 0]);
+        assert_eq!(net.transitions[0].outgoing, vec![0, 0]);
 
-                let state_one_token = PetriState { tokens: vec![1] };
-                let state_two_tokens = PetriState { tokens: vec![2] };
+        let state_one_token = PetriState { tokens: vec![1] };
+        let state_two_tokens = PetriState { tokens: vec![2] };
 
-                assert!(!net.transitions[0].is_fireable(&state_one_token));
-                assert!(net.transitions[0].is_fireable(&state_two_tokens));
+        assert!(!net.transitions[0].is_fireable(&state_one_token));
+        assert!(net.transitions[0].is_fireable(&state_two_tokens));
 
-                let next_states = net.next_states(&state_two_tokens);
-                assert_eq!(next_states.len(), 1);
-                assert_eq!(next_states[0].tokens, vec![2]);
-        }
+        let next_states = net.next_states(&state_two_tokens);
+        assert_eq!(next_states.len(), 1);
+        assert_eq!(next_states[0].tokens, vec![2]);
+    }
 }

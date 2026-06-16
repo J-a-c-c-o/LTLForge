@@ -6,9 +6,7 @@ use std::process::Command;
 
 // Import your domain components from your library crate target
 use ltl_forge::{
-    builder::PetriNetBuilder,
-    emptyness, explorer, gnba, ltl_parser, nba,
-    petri_net::PetriNet,
+    builder::PetriNetBuilder, emptyness, explorer, gnba, ltl_parser, nba, petri_net::PetriNet,
     philosophers, pnf,
 };
 
@@ -112,7 +110,8 @@ fn main() {
     // 1GB Stack space for deep nested state space recursion
     const MAIN_STACK_SIZE: usize = 1024 * 1024 * 1024;
     let builder = std::thread::Builder::new().stack_size(MAIN_STACK_SIZE);
-    builder.spawn(run)
+    builder
+        .spawn(run)
         .expect("Failed to spawn main thread with increased stack size")
         .join()
         .expect("Main thread panicked");
@@ -122,7 +121,11 @@ fn run() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Philosophers { philosophers, mode, generic } => {
+        Commands::Philosophers {
+            philosophers,
+            mode,
+            generic,
+        } => {
             println!(
                 "{} Number of philosophers: {}, Mode: {}",
                 "[Philosophers]".bright_cyan().bold(),
@@ -132,7 +135,8 @@ fn run() {
             let config = config_generator(mode, philosophers);
             let (states, deadlocks) = match generic {
                 true => {
-                    let petri_net = philosophers::build_dining_philosophers(philosophers, config.clone());
+                    let petri_net =
+                        philosophers::build_dining_philosophers(philosophers, config.clone());
                     let stats = explorer::get_reachability_stats(&petri_net);
                     (stats.reachable_count, stats.deadlock_count)
                 }
@@ -145,11 +149,19 @@ fn run() {
                 }
             };
 
-            println!("{}: {}", "Reachable states".bold(), states.to_string().green());
+            println!(
+                "{}: {}",
+                "Reachable states".bold(),
+                states.to_string().green()
+            );
             println!(
                 "{}: {}",
                 "Deadlocks".bold(),
-                if deadlocks > 0 { deadlocks.to_string().red() } else { "0".green() }
+                if deadlocks > 0 {
+                    deadlocks.to_string().red()
+                } else {
+                    "0".green()
+                }
             );
         }
 
@@ -163,11 +175,19 @@ fn run() {
             let petri_net = &PetriNetBuilder::build_from_file(&pnml_file)[0];
             let stats = explorer::get_reachability_stats(petri_net);
 
-            println!("{}: {}", "Reachable states".bold(), stats.reachable_count.to_string().green());
+            println!(
+                "{}: {}",
+                "Reachable states".bold(),
+                stats.reachable_count.to_string().green()
+            );
             println!(
                 "{}: {}",
                 "Deadlocks".bold(),
-                if stats.deadlock_count > 0 { stats.deadlock_count.to_string().red() } else { "0".green() }
+                if stats.deadlock_count > 0 {
+                    stats.deadlock_count.to_string().red()
+                } else {
+                    "0".green()
+                }
             );
         }
 
@@ -196,12 +216,16 @@ fn run() {
 
             let config = emptyness::ModelCheckConfig::with_limits(timeout, memory_limit);
             let petri_nets = PetriNetBuilder::build_from_file(&pnml_file);
-            
+
             if petri_nets.is_empty() {
                 if simple {
                     eprintln!("ERROR");
                 } else {
-                    eprintln!("{} No Petri nets found in file: {}", "Error:".red().bold(), pnml_file);
+                    eprintln!(
+                        "{} No Petri nets found in file: {}",
+                        "Error:".red().bold(),
+                        pnml_file
+                    );
                 }
                 return;
             }
@@ -245,22 +269,58 @@ fn run() {
                                 }
                             }
                             Err(emptyness::ModelCheckError::Timeout) => {
-                                if simple { simple_output.push('T'); } 
-                                else { eprintln!("{}", format!("  ERROR: Model checking timed out after {}s", timeout).red().bold()); }
+                                if simple {
+                                    simple_output.push('T');
+                                } else {
+                                    eprintln!(
+                                        "{}",
+                                        format!(
+                                            "  ERROR: Model checking timed out after {}s",
+                                            timeout
+                                        )
+                                        .red()
+                                        .bold()
+                                    );
+                                }
                                 summary.push((name.clone(), Err("Timeout".to_string())));
                             }
                             Err(emptyness::ModelCheckError::MemoryLimitExceeded) => {
-                                if simple { simple_output.push('M'); } 
-                                else { eprintln!("{}", format!("  ERROR: Memory limit exceeded ({}MB)", memory_limit).red().bold()); }
+                                if simple {
+                                    simple_output.push('M');
+                                } else {
+                                    eprintln!(
+                                        "{}",
+                                        format!(
+                                            "  ERROR: Memory limit exceeded ({}MB)",
+                                            memory_limit
+                                        )
+                                        .red()
+                                        .bold()
+                                    );
+                                }
                                 summary.push((name.clone(), Err("Memory limit".to_string())));
                             }
                             Err(emptyness::ModelCheckError::CouldNotDetermineMemoryUsage) => {
-                                if simple { simple_output.push('?'); } 
-                                else { eprintln!("{}", "  ERROR: Could not determine memory usage".to_string().red().bold()); }
-                                summary.push((name.clone(), Err("Could not determine memory usage".to_string())));
+                                if simple {
+                                    simple_output.push('?');
+                                } else {
+                                    eprintln!(
+                                        "{}",
+                                        "  ERROR: Could not determine memory usage"
+                                            .to_string()
+                                            .red()
+                                            .bold()
+                                    );
+                                }
+                                summary.push((
+                                    name.clone(),
+                                    Err("Could not determine memory usage".to_string()),
+                                ));
                             }
                         }
-                        if !simple { println!(); }
+                        if !simple {
+                            println!();
+                        }
                     }
 
                     if simple {
@@ -271,20 +331,29 @@ fn run() {
                             match result {
                                 Ok(true) => println!("  - {}: {}", name, "Holds ✔".green()),
                                 Ok(false) => println!("  - {}: {}", name, "Violated ✘".red()),
-                                Err(e) => println!("  - {}: {}", name, format!("Error ({})", e).red()),
+                                Err(e) => {
+                                    println!("  - {}: {}", name, format!("Error ({})", e).red())
+                                }
                             }
                         }
                     }
                 }
                 Err(e) => {
-                    if simple { eprintln!("PARSE_ERROR"); } 
-                    else { eprintln!("{} {}", "Error parsing LTL file:".red().bold(), e); }
+                    if simple {
+                        eprintln!("PARSE_ERROR");
+                    } else {
+                        eprintln!("{} {}", "Error parsing LTL file:".red().bold(), e);
+                    }
                 }
             }
         }
 
         Commands::Pnf { ltl_file } => {
-            println!("{} LTL file: {}", "[PNF]".bright_cyan().bold(), ltl_file.underline());
+            println!(
+                "{} LTL file: {}",
+                "[PNF]".bright_cyan().bold(),
+                ltl_file.underline()
+            );
             match ltl_parser::parse_mcc_file(&ltl_file) {
                 Ok(formulas) => {
                     for (name, formula) in formulas {
@@ -299,28 +368,71 @@ fn run() {
             }
         }
 
-        Commands::Gnba { ltl_file, hoa, dot, png, view, viewer } => {
-            println!("{} LTL file: {}", "[GNBA]".bright_cyan().bold(), ltl_file.underline());
+        Commands::Gnba {
+            ltl_file,
+            hoa,
+            dot,
+            png,
+            view,
+            viewer,
+        } => {
+            println!(
+                "{} LTL file: {}",
+                "[GNBA]".bright_cyan().bold(),
+                ltl_file.underline()
+            );
             process_automaton(
-                "GNBA", ltl_file, hoa, dot, png, view, viewer,
+                "GNBA",
+                ltl_file,
+                hoa,
+                dot,
+                png,
+                view,
+                viewer,
                 |f| gnba::GNBA::new(f).to_hoa(),
                 |f| gnba::GNBA::new(f).to_dot(),
                 |f| gnba::GNBA::new(f).print_stats(),
             );
         }
 
-        Commands::Nba { ltl_file, hoa, dot, png, view, viewer } => {
-            println!("{} LTL file: {}", "[NBA]".bright_cyan().bold(), ltl_file.underline());
+        Commands::Nba {
+            ltl_file,
+            hoa,
+            dot,
+            png,
+            view,
+            viewer,
+        } => {
+            println!(
+                "{} LTL file: {}",
+                "[NBA]".bright_cyan().bold(),
+                ltl_file.underline()
+            );
             process_automaton(
-                "NBA", ltl_file, hoa, dot, png, view, viewer,
+                "NBA",
+                ltl_file,
+                hoa,
+                dot,
+                png,
+                view,
+                viewer,
                 |f| nba::NBA::new(f).to_hoa(),
                 |f| nba::NBA::new(f).to_dot(),
                 |f| nba::NBA::new(f).print_stats(),
             );
         }
 
-        Commands::Sat { ltl_file, timeout, memory_limit, show_counterexample } => {
-            println!("{} LTL file: {}", "[SAT]".bright_cyan().bold(), ltl_file.underline());
+        Commands::Sat {
+            ltl_file,
+            timeout,
+            memory_limit,
+            show_counterexample,
+        } => {
+            println!(
+                "{} LTL file: {}",
+                "[SAT]".bright_cyan().bold(),
+                ltl_file.underline()
+            );
             println!(
                 "{} Timeout: {}s, Memory limit: {}MB",
                 "[Config]".bright_cyan().bold(),
@@ -334,9 +446,16 @@ fn run() {
                         println!("{}", format!("[{}]", name).magenta().bold());
                         println!("  {} {}", "Formula:".blue(), formula);
                         match emptyness::is_satisfiable(&formula, &config) {
-                            Ok(((nba_sat, stack_path_nba, stack_cycle_nba), (gnba_sat, stack_path_gnba, stack_cycle_gnba))) => {
+                            Ok((
+                                (nba_sat, stack_path_nba, stack_cycle_nba),
+                                (gnba_sat, stack_path_gnba, stack_cycle_gnba),
+                            )) => {
                                 let sat_str = |val: bool| {
-                                    if val { "Satisfiable".green().bold() } else { "Unsatisfiable".red().bold() }
+                                    if val {
+                                        "Satisfiable".green().bold()
+                                    } else {
+                                        "Unsatisfiable".red().bold()
+                                    }
                                 };
                                 println!("  NBA:  {}", sat_str(nba_sat));
                                 if show_counterexample && nba_sat {
@@ -363,14 +482,21 @@ fn run() {
             }
         }
 
-        Commands::Convert { philosophers, output_file, mode } => {
+        Commands::Convert {
+            philosophers,
+            output_file,
+            mode,
+        } => {
             println!(
                 "{} Philosophers: {}, Output: {}",
                 "[Convert]".bright_cyan().bold(),
                 philosophers.to_string().yellow(),
                 output_file.underline()
             );
-            let petri_net = philosophers::build_dining_philosophers(philosophers, config_generator(mode, philosophers));
+            let petri_net = philosophers::build_dining_philosophers(
+                philosophers,
+                config_generator(mode, philosophers),
+            );
             let pnml_content = petri_net.to_pnml();
             if std::fs::write(&output_file, pnml_content).is_ok() {
                 println!("{}", "Successfully wrote PNML file.".green());
@@ -420,7 +546,9 @@ fn process_automaton<FHoa, FDot, FPrint>(
                             .args(["-Tpng", &filename, "-o", &output_png])
                             .status();
 
-                        if let Ok(s) = status && s.success() {
+                        if let Ok(s) = status
+                            && s.success()
+                        {
                             println!("  {} {}", "Generated PNG:".green(), output_png.underline());
                             if view || viewer.is_some() {
                                 if let Some(v) = &viewer {
@@ -473,9 +601,12 @@ fn is_command_available(command: &str) -> bool {
         .is_ok()
 }
 
-fn config_generator(mode: usize, n: usize) -> Vec<ltl_forge::philosophers::PhilosopherConfiguration> {
+fn config_generator(
+    mode: usize,
+    n: usize,
+) -> Vec<ltl_forge::philosophers::PhilosopherConfiguration> {
     use ltl_forge::philosophers::PhilosopherConfiguration;
-    
+
     let mut config = Vec::new();
     for i in 0..n {
         let philosopher_config = match mode {
