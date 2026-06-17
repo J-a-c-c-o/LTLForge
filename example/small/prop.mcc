@@ -2,7 +2,6 @@ Property example_prop_00 "Generally Eventually p2 gets a token" is:
 A (G (F (1 <= (#tokens("p2")))))
 end.
 
-
 Property example_prop_01 "Generally p1 has a token" is:
 A (G (1 <= (#tokens("p1"))))
 end.

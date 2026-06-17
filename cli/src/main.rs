@@ -622,7 +622,17 @@ fn config_generator(
                 allowed_left: i == 0,
                 allowed_right: i != 0,
             },
-            _ => panic!("Invalid mode"),
+            _ => {
+                eprintln!(
+                    "{} Invalid mode: {}. Using default mode 0.",
+                    "Warning:".yellow().bold(),
+                    mode
+                );
+                PhilosopherConfiguration {
+                    allowed_left: true,
+                    allowed_right: false,
+                }
+            }
         };
         config.push(philosopher_config);
     }
