@@ -1,0 +1,68 @@
+<pnml>
+    <net id="TrafficLight">
+        <page id="DocumentDefaultPage">
+
+            <place id="NS_Green">
+                <initialMarking>
+                    <text>1</text>
+                </initialMarking>
+            </place>
+
+            <place id="NS_Yellow">
+                <initialMarking>
+                    <text>0</text>
+                </initialMarking>
+            </place>
+
+            <place id="NS_Red">
+                <initialMarking>
+                    <text>0</text>
+                </initialMarking>
+            </place>
+
+            <place id="EW_Green">
+                <initialMarking>
+                    <text>0</text>
+                </initialMarking>
+            </place>
+
+            <place id="EW_Yellow">
+                <initialMarking>
+                    <text>0</text>
+                </initialMarking>
+            </place>
+
+            <place id="EW_Red">
+                <initialMarking>
+                    <text>1</text>
+                </initialMarking>
+            </place>
+
+            <transition id="t1_NS_slows"/>
+            <transition id="t2_NS_stops"/>
+            <transition id="t3_EW_slows"/>
+            <transition id="t4_EW_stops"/>
+
+            <!-- t1: NS_Green -> NS_Yellow -->
+            <arc source="NS_Green" target="t1_NS_slows"/>
+            <arc source="t1_NS_slows" target="NS_Yellow"/>
+
+            <!-- t2: NS_Yellow + EW_Red -> NS_Red + EW_Green -->
+            <arc source="NS_Yellow" target="t2_NS_stops"/>
+            <arc source="EW_Red" target="t2_NS_stops"/>
+            <arc source="t2_NS_stops" target="NS_Red"/>
+            <arc source="t2_NS_stops" target="EW_Green"/>
+
+            <!-- t3: EW_Green -> EW_Yellow -->
+            <arc source="EW_Green" target="t3_EW_slows"/>
+            <arc source="t3_EW_slows" target="EW_Yellow"/>
+
+            <!-- t4: EW_Yellow + NS_Red -> EW_Red + NS_Green -->
+            <arc source="EW_Yellow" target="t4_EW_stops"/>
+            <arc source="NS_Red" target="t4_EW_stops"/>
+            <arc source="t4_EW_stops" target="EW_Red"/>
+            <arc source="t4_EW_stops" target="NS_Green"/>
+
+        </page>
+    </net>
+</pnml>

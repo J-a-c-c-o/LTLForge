@@ -51,14 +51,19 @@ enum Commands {
     Gnba {
         /// LTL specification file
         ltl_file: String,
+        /// Output in HOA format
         #[arg(long)]
         hoa: bool,
+        /// Output in DOT format
         #[arg(long)]
         dot: bool,
+        /// Output in PNG format (requires Graphviz installed)
         #[arg(long)]
         png: bool,
+        /// View the generated PNG file (requires Graphviz installed)
         #[arg(long)]
         view: bool,
+        /// Specify a viewer application to open the PNG file (requires Graphviz installed)
         #[arg(long)]
         viewer: Option<String>,
     },
@@ -66,14 +71,19 @@ enum Commands {
     Nba {
         /// LTL specification file
         ltl_file: String,
+        /// Output in HOA format
         #[arg(long)]
         hoa: bool,
+        /// Output in DOT format
         #[arg(long)]
         dot: bool,
+        /// Output in PNG format (requires Graphviz installed)
         #[arg(long)]
         png: bool,
+        /// View the generated PNG file (requires Graphviz installed)
         #[arg(long)]
         view: bool,
+        /// Specify a viewer application to open the PNG file (requires Graphviz installed)
         #[arg(long)]
         viewer: Option<String>,
     },
@@ -93,15 +103,21 @@ enum Commands {
     },
     /// Runs the Philosophers problem
     Philosophers {
+        /// Number of philosophers
         philosophers: usize,
+        /// Mode of the problem (0: all right, 1: any, or 2: one left, others right)
         mode: usize,
+        /// Use generic Petri net representation
         #[arg(long, default_value_t = false)]
         generic: bool,
     },
     /// Convert the dining philosophers problem to a PNML file
     Convert {
+        /// Number of philosophers
         philosophers: usize,
+        /// Mode of the problem (0: all right, 1: any, or 2: one left, others right)
         mode: usize,
+        /// Output PNML file
         output_file: String,
     },
 }

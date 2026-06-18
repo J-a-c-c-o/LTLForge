@@ -1,0 +1,15 @@
+Property example_prop_00 "Safety" is:
+A (G !(1 <= (#tokens("NS_Green")) & 1 <= (#tokens("EW_Green"))))
+end.
+
+Property example_prop_01 "Liveness" is:
+A (G ((#tokens("NS_Red") >= 1) -> F (#tokens("NS_Green") >= 1)))
+end.
+
+Property example_prop_02 "Next sequencing" is:
+A (G ((#tokens("NS_Green") >= 1) -> F (#tokens("NS_Yellow") >= 1)))
+end.
+
+Property example_prop_03 "Sanity Checking" is:
+A (F ((#tokens("NS_Green") >= 1) & (#tokens("NS_Red") >= 1)))
+end.
