@@ -7,7 +7,7 @@ A (G ((#tokens("NS_Red") >= 1) -> F (#tokens("NS_Green") >= 1)))
 end.
 
 Property example_prop_02 "Next sequencing" is:
-A (G ((#tokens("NS_Green") >= 1) -> F (#tokens("NS_Yellow") >= 1)))
+A (G ((#tokens("NS_Green") >= 1) -> X (#tokens("NS_Yellow") >= 1)))
 end.
 
 Property example_prop_03 "Sanity Checking" is:
